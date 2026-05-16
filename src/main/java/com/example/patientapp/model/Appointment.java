@@ -5,6 +5,8 @@ import lombok.Data;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * JPA Entity mapped to the 'appointment' table.
  *
@@ -25,11 +27,13 @@ public class Appointment {
     // FK -> patient.patientId
     @ManyToOne
     @JoinColumn(name = "patientId", nullable = false)
+    @JsonIgnoreProperties({"appointments"})
     private Patient patient;
 
     // FK -> doctor.doctorId
     @ManyToOne
     @JoinColumn(name = "doctorId", nullable = false)
+    @JsonIgnoreProperties({"appointments"})
     private Doctor doctor;
 
     private LocalDate appointmentDate;

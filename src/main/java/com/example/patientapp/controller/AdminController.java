@@ -1,10 +1,14 @@
 package com.example.patientapp.controller;
 
+import com.example.patientapp.dto.RegisterRequest;
 import com.example.patientapp.dto.UpdateAdminRequest;
 import com.example.patientapp.model.Admin;
 import com.example.patientapp.model.Doctor;
+import com.example.patientapp.model.Logs;
 import com.example.patientapp.model.Patient;
 import com.example.patientapp.service.AdminService;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +38,16 @@ public class AdminController {
         this.adminService = adminService;
     }
 
+    
+    //view logs
+    @GetMapping("/logs")
+    public ResponseEntity<List<Logs>> getAllLogs() {
+        return ResponseEntity.ok(adminService.getAllLogs());
+    }
+    
+    
+    
+    
     // ---- View all admins ----
 
     /**
@@ -62,8 +76,8 @@ public class AdminController {
      * Returns 200 with a confirmation message on success.
      */
     @DeleteMapping("/patients/{id}")
-    public ResponseEntity<String> deletePatient(@PathVariable Long id) {
-        adminService.deletePatient(id);
+    public ResponseEntity<String> deletePatient(@PathVariable Long id, @RequestParam String adminEmail) {
+        adminService.deletePatient(id,adminEmail);
         return ResponseEntity.ok("Patient " + id + " and all their appointments have been deleted.");
     }
 
@@ -77,6 +91,14 @@ public class AdminController {
     public ResponseEntity<List<Doctor>> getAllDoctors() {
         return ResponseEntity.ok(adminService.getAllDoctors());
     }
+    
+  //this part has to implement after intrime
+    
+//    @PostMapping("/doctors")
+//    public ResponseEntity<Object> createDoctor(@RequestBody RegisterRequest request) {
+//        Object saved = adminService.createDoctor(request);
+//        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+//    }
 
     /**
      * DELETE /api/admins/doctors/{id}
@@ -84,8 +106,8 @@ public class AdminController {
      * Returns 200 with a confirmation message on success.
      */
     @DeleteMapping("/doctors/{id}")
-    public ResponseEntity<String> deleteDoctor(@PathVariable Long id) {
-        adminService.deleteDoctor(id);
+    public ResponseEntity<String> deleteDoctor(@PathVariable Long id,@RequestParam String adminEmail) {
+        adminService.deleteDoctor(id,adminEmail);
         return ResponseEntity.ok(
                 "Doctor " + id + ", their appointments, and blocked slots have been deleted."
         );
@@ -100,11 +122,22 @@ public class AdminController {
      * An admin updates their own display name and/or job title.
      * Both fields are optional - omit a field to leave it unchanged.
      */
+    
+  //this part has to implement after intrime
+    
+//    @PostMapping
+//    public ResponseEntity<Object> createAdmin(@RequestBody RegisterRequest request) {
+//        Object saved = adminService.createAdmin(request);
+//        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+//    } 
+    
+    
     @PutMapping("/{id}")
     public ResponseEntity<Admin> updateAdmin(
             @PathVariable Long id,
-            @RequestBody UpdateAdminRequest request) {
-        return ResponseEntity.ok(adminService.updateAdmin(id, request));
+            @RequestBody UpdateAdminRequest request,
+            @RequestParam String adminEmail) {
+        return ResponseEntity.ok(adminService.updateAdmin(id, request,adminEmail));
     }
 
     /**
@@ -113,8 +146,8 @@ public class AdminController {
      * Returns 200 with a confirmation message on success.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteAdmin(@PathVariable Long id) {
-        adminService.deleteAdmin(id);
+    public ResponseEntity<String> deleteAdmin(@PathVariable Long id, @RequestParam String adminEmail) {
+        adminService.deleteAdmin(id,adminEmail);
         return ResponseEntity.ok("Admin account " + id + " has been deleted.");
     }
 }

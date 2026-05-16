@@ -13,8 +13,11 @@ import com.example.patientapp.repository.DoctorRepository;
 import com.example.patientapp.repository.PatientRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.stereotype.Service;
 
+import org.springframework.transaction.annotation.Transactional;
+
+import org.springframework.stereotype.Service;
+import com.example.patientapp.exception.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -51,14 +54,15 @@ public class AppointmentService {
      *  2. Generate every 15-min slot in that window -> [09:00, 09:15, ..., 16:45]
      *  3. Remove slots already BOOKED/COMPLETED on that date (cancelled slots are freed)
      */
+    @Transactional(readOnly = true)
     public List<LocalTime> getAvailableSlots(Long doctorId, LocalDate date) {
         Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new RuntimeException("Doctor not found: " + doctorId));
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found: " + doctorId));
 
         if (doctor.getAvailability() == null || doctor.getAvailability().isBlank()) {
-            throw new RuntimeException("Doctor has not configured availability yet");
+            throw new BadRequestException("Doctor has not configured availability yet");
         }
-
+        
         LocalTime[] window = parseAvailabilityJson(doctor.getAvailability());
         List<LocalTime> all = generateAllSlots(window[0], window[1]);
 
@@ -115,16 +119,16 @@ public class AppointmentService {
     }
 
     // — Book appointment —
-
+    @Transactional
     public AppointmentResponse bookAppointment(BookAppointmentRequest req) {
         Patient patient = patientRepository.findById(req.getPatientId())
-                .orElseThrow(() -> new RuntimeException("Patient not found: " + req.getPatientId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found: " + req.getPatientId()));
         Doctor doctor = doctorRepository.findById(req.getDoctorId())
-                .orElseThrow(() -> new RuntimeException("Doctor not found: " + req.getDoctorId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found: " + req.getDoctorId()));
 
         List<LocalTime> available = getAvailableSlots(req.getDoctorId(), req.getAppointmentDate());
         if (!available.contains(req.getTimeSlot())) {
-            throw new RuntimeException(
+            throw new SlotConflictException(
                     "Slot " + req.getTimeSlot() + " on " + req.getAppointmentDate()
                             + " is not available for Dr. " + doctor.getName());
         }
@@ -140,14 +144,21 @@ public class AppointmentService {
     }
 
     // — Cancel / view —
-
+    @Transactional
     public AppointmentResponse cancelAppointment(Long appointmentId) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new RuntimeException("Appointment not found: " + appointmentId));
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found: " + appointmentId));
+        
+        if (appointment.getStatus() != AppointmentStatus.BOOKED) {
+            throw new BadRequestException(
+                    "Cannot cancel appointment with status: " + appointment.getStatus());
+        }
+        
         appointment.setStatus(AppointmentStatus.CANCELED);
         return AppointmentResponse.from(appointmentRepository.save(appointment));
     }
-
+    
+    @Transactional(readOnly = true)
     public List<AppointmentResponse> viewAllAppointments() {
         return appointmentRepository.findAll()
                 .stream()
@@ -158,7 +169,7 @@ public class AppointmentService {
     public AppointmentResponse getAppointmentById(Long id) {
         return AppointmentResponse.from(
                 appointmentRepository.findById(id)
-                        .orElseThrow(() -> new RuntimeException("Appointment not found: " + id))
+                        .orElseThrow(() -> new ResourceNotFoundException("Appointment not found: " + id))
         );
     }
 }

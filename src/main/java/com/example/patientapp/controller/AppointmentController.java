@@ -3,6 +3,9 @@ package com.example.patientapp.controller;
 import com.example.patientapp.dto.AppointmentResponse;
 import com.example.patientapp.dto.BookAppointmentRequest;
 import com.example.patientapp.service.AppointmentService;
+
+import jakarta.validation.Valid;
+
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -62,7 +65,7 @@ public class AppointmentController {
      */
     @PostMapping("/book")
     public ResponseEntity<AppointmentResponse> bookAppointment(
-            @RequestBody BookAppointmentRequest request) {
+            @Valid @RequestBody BookAppointmentRequest request) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(appointmentService.bookAppointment(request));

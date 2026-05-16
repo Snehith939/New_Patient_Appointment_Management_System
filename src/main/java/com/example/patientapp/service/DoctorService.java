@@ -101,6 +101,18 @@ public class DoctorService {
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new RuntimeException("Doctor not found: " + doctorId));
 
+        
+        boolean appointmentExists =
+                appointmentRepository.existsByDoctor_DoctorIdAndAppointmentDateAndTimeSlot(
+                        doctorId, date, timeSlot);
+     
+        if (appointmentExists) {
+            throw new RuntimeException(
+                    "Patient has Appointment in this time slot. Choose different one.");
+        }
+        
+        
+        
         if (blockedSlotRepository
                 .findByDoctor_DoctorIdAndBlockedDateAndTimeSlot(doctorId, date, timeSlot)
                 .isPresent()) {
@@ -114,6 +126,14 @@ public class DoctorService {
         blocked.setTimeSlot(timeSlot);
         return blockedSlotRepository.save(blocked);
     }
+    
+    
+    
+    
+    
+    
+    
+    
 
     /**
      * Removes a previously blocked slot, making it bookable again.

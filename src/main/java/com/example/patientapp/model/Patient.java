@@ -1,11 +1,14 @@
 package com.example.patientapp.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDate;
 
 @Entity
+//@JsonIgnoreProperties({"password"})
 @Table(name = "patient")
 @Data
 public class Patient {

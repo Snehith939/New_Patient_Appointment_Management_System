@@ -14,6 +14,7 @@ import lombok.Data;
  * the 15-minute time slots — no separate columns needed.
  */
 @Entity
+//@Table(name = "Doctor")
 @Table(name = "doctor")
 @Data
 public class Doctor {

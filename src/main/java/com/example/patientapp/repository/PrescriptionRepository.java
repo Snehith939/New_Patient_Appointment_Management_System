@@ -1,22 +1,20 @@
 package com.example.patientapp.repository;
 
-import com.example.patientapp.model.Prescription;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
+import java.util.Optional;
+ 
+import org.springframework.data.jpa.repository.JpaRepository;
 
-@Repository
+import com.example.patientapp.model.Prescription;
+ 
 public interface PrescriptionRepository extends JpaRepository<Prescription, Long> {
-
-    // All prescriptions for a patient - used by patient view
-    List<Prescription> findByPatient_PatientId(Long patientId);
-
-    // Cascade-delete helpers used by AdminService
-    @Transactional
-    void deleteByPatient_PatientId(Long patientId);
-
-    @Transactional
-    void deleteByDoctor_DoctorId(Long doctorId);
+ 
+    // ✅ Get all prescriptions of a patient
+    List<Prescription> findByPatientPatientId(Long patientId);
+ 
+    // ✅ Used for secure update/delete (doctor validation)
+    Optional<Prescription> findByPrescriptionIdAndDoctorDoctorId(Long id, Long doctorId);
+ 
+    // ✅ ✅ NEW: check if prescription already exists for appointment
+    boolean existsByAppointmentAppointmentId(Long appointmentId);
 }

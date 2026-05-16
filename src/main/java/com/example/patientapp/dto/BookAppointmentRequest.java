@@ -3,7 +3,8 @@ package com.example.patientapp.dto;
 import lombok.Data;
 import java.time.LocalDate;
 import java.time.LocalTime;
-
+import jakarta.validation.constraints.FutureOrPresent;
+import jakarta.validation.constraints.NotNull;
 /**
  * Request body for booking an appointment.
  *
@@ -23,8 +24,18 @@ import java.time.LocalTime;
 @Data
 public class BookAppointmentRequest {
 
+	@NotNull(message = "Patient ID is required")
     private Long      patientId;
+    
+    @NotNull(message = "Doctor ID is required")
     private Long      doctorId;
+    
+ 
+    @NotNull(message = "Appointment date is required")
+    @FutureOrPresent(message = "Cannot book appointments in the past")
     private LocalDate appointmentDate;
+ 
+    
+    @NotNull(message = "Time slot is required")
     private LocalTime timeSlot;
 }

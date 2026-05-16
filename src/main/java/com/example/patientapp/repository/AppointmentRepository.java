@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -79,4 +80,11 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     // Delete all appointments belonging to a doctor before deleting the doctor row
     @Transactional
     void deleteByDoctor_DoctorId(Long doctorId);
+    
+    
+    boolean existsByDoctor_DoctorIdAndAppointmentDateAndTimeSlot(
+            Long doctorId,
+            LocalDate appointmentDate,
+            LocalTime timeSlot);
+    
 }
