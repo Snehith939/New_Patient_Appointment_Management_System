@@ -24,7 +24,7 @@ import jakarta.validation.constraints.NotNull;
 @Data
 public class BookAppointmentRequest {
 
-	@NotNull(message = "Patient ID is required")
+//	@NotNull(message = "Patient ID is required")
     private Long      patientId;
     
     @NotNull(message = "Doctor ID is required")

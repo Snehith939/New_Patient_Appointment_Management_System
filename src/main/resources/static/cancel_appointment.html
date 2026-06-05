@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cancel Appointment</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f0f2f5;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* ===== Navbar ===== */
+    .navbar-brand {
+      font-weight: 700;
+      color: #1a56db !important;
+      font-size: 1.4rem;
+    }
+
+    /* ===== Page Header ===== */
+    .page-header h2 {
+      font-weight: 700;
+      color: #1f2937;
+      font-size: 1.6rem;
+    }
+    .breadcrumb-item a { color: #6b7280; text-decoration: none; }
+    .breadcrumb-item.active { color: #1a56db; }
+
+    /* ===== Card ===== */
+    .card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    /* ===== Warning Alert ===== */
+    .warning-alert {
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .warning-alert .icon {
+      background: #fee2e2;
+      color: #dc2626;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+    .warning-alert .text {
+      font-weight: 600;
+      color: #991b1b;
+      font-size: 1rem;
+    }
+
+    /* ===== Appointment Details ===== */
+    .detail-card {
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 24px;
+      margin: 24px 0;
+    }
+    .detail-card h6 {
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 16px;
+      font-size: 1rem;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 0.95rem;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-row .label {
+      color: #6b7280;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .detail-row .value {
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    /* ===== Warning Text ===== */
+    .warning-text {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 14px 18px;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.9rem;
+      color: #92400e;
+      margin: 20px 0;
+    }
+
+    /* ===== Buttons ===== */
+    .btn-keep {
+      background: #374151;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 30px;
+      font-weight: 600;
+      color: #fff;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+    }
+    .btn-keep:hover { background: #1f2937; color: #fff; }
+
+    .btn-cancel-apt {
+      background: #dc2626;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 30px;
+      font-weight: 600;
+      color: #fff;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+    }
+    .btn-cancel-apt:hover {
+      background: #b91c1c;
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+    }
+    .btn-cancel-apt:disabled {
+      background: #f87171;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* ===== States ===== */
+    .success-state, .error-state, .loading-state {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .success-state .icon { font-size: 4rem; color: #10b981; }
+    .error-state .icon   { font-size: 4rem; color: #ef4444; }
+    .success-state h4, .error-state h4 {
+      font-weight: 700;
+      margin-top: 12px;
+    }
+    .success-state p, .error-state p {
+      color: #6b7280;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+    <div class="container">
+      <a class="navbar-brand" href="#"><i class="bi bi-hospital"></i> MediCare</a>
+      <div class="d-flex align-items-center gap-3">
+        <span class="position-relative">
+          <i class="bi bi-bell fs-5"></i>
+          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.6rem;">3</span>
+        </span>
+        <div class="d-flex align-items-center gap-2">
+          <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
+               style="width:36px;height:36px;font-size:0.85rem;font-weight:600;">AW</div>
+          <div>
+            <div style="font-size:0.85rem;font-weight:600;">Arya Wankhade</div>
+            <div style="font-size:0.7rem;color:#6b7280;">Patient</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <div class="container py-4">
+
+    <div class="page-header mb-4">
+      <h2><i class="bi bi-x-circle text-danger"></i> Cancel Appointment</h2>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="index.html">Home</a></li>
+          <li class="breadcrumb-item"><a href="view_appointments.html">Appointments</a></li>
+          <li class="breadcrumb-item active">Cancel</li>
+        </ol>
+      </nav>
+    </div>
+
+    <div class="row justify-content-center">
+      <div class="col-lg-7">
+        <div class="card p-4">
+
+          <!-- ===== LOADING STATE ===== -->
+          <div class="loading-state" id="loadingState">
+            <div class="spinner-border text-primary mb-3"></div>
+            <p class="text-muted">Loading appointment details...</p>
+          </div>
+
+          <!-- ===== CANCEL FORM STATE ===== -->
+          <div id="cancelForm" style="display:none;">
+
+            <!-- Warning Alert -->
+            <div class="warning-alert">
+              <div class="icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+              <div class="text">Are you sure you want to cancel this appointment?</div>
+            </div>
+
+            <!-- Appointment Details (filled dynamically) -->
+            <div class="detail-card">
+              <h6><i class="bi bi-file-earmark-medical"></i> Appointment Details</h6>
+              <div class="detail-row">
+                <span class="label"><i class="bi bi-hash"></i> Appointment ID</span>
+                <span class="value" id="detailId">—</span>
+              </div>
+              <div class="detail-row">
+                <span class="label"><i class="bi bi-person"></i> Doctor</span>
+                <span class="value" id="detailDoctor">—</span>
+              </div>
+              <div class="detail-row">
+                <span class="label"><i class="bi bi-heart-pulse"></i> Specialization</span>
+                <span class="value" id="detailSpec">—</span>
+              </div>
+              <div class="detail-row">
+                <span class="label"><i class="bi bi-calendar-event"></i> Date</span>
+                <span class="value" id="detailDate">—</span>
+              </div>
+              <div class="detail-row">
+                <span class="label"><i class="bi bi-clock"></i> Time</span>
+                <span class="value" id="detailTime">—</span>
+              </div>
+              <div class="detail-row">
+                <span class="label"><i class="bi bi-tag"></i> Status</span>
+                <span class="value" id="detailStatus">—</span>
+              </div>
+            </div>
+
+            <!-- Warning Text -->
+            <div class="warning-text">
+              <i class="bi bi-info-circle-fill"></i>
+              <strong>Warning:</strong> This action cannot be undone.
+              Once canceled, you will need to book a new appointment.
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="d-flex gap-3 justify-content-center mt-4">
+              <a href="view_appointments.html" class="btn btn-keep">
+                <i class="bi bi-arrow-left"></i> No, Keep It
+              </a>
+              <button class="btn btn-cancel-apt" id="cancelBtn" onclick="cancelAppointment()">
+                <i class="bi bi-x-circle"></i> Yes, Cancel Appointment
+              </button>
+            </div>
+          </div>
+
+          <!-- ===== SUCCESS STATE ===== -->
+          <div class="success-state" id="successState" style="display:none;">
+            <div class="icon"><i class="bi bi-check-circle-fill"></i></div>
+            <h4>Appointment Canceled</h4>
+            <p>Your appointment <strong id="successId"></strong> has been canceled successfully.</p>
+            <div class="d-flex gap-2 justify-content-center mt-3">
+              <a href="book_appointment.html" class="btn btn-primary rounded-3 px-4">
+                <i class="bi bi-plus-circle"></i> Book New
+              </a>
+              <a href="view_appointments.html" class="btn btn-outline-secondary rounded-3 px-4">
+                <i class="bi bi-list"></i> My Appointments
+              </a>
+            </div>
+          </div>
+
+          <!-- ===== ERROR STATE ===== -->
+          <div class="error-state" id="errorState" style="display:none;">
+            <div class="icon"><i class="bi bi-x-circle-fill"></i></div>
+            <h4>Something Went Wrong</h4>
+            <p id="errorMsg">Could not process your request.</p>
+            <a href="view_appointments.html" class="btn btn-primary rounded-3 px-4 mt-2">
+              <i class="bi bi-arrow-left"></i> Back to Appointments
+            </a>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // ═══════════════════════════════════════════════════
+    //  CONFIGURATION
+    // ═══════════════════════════════════════════════════
+    const BASE_URL = 'http://localhost:8081/api';
+
+    // Get appointment ID from URL → cancel_appointment.html?id=5
+    const urlParams = new URLSearchParams(window.location.search);
+    const appointmentId = urlParams.get('id');
+
+    // ═══════════════════════════════════════════════════
+    //  ON PAGE LOAD → Fetch appointment details
+    // ═══════════════════════════════════════════════════
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!appointmentId) {
+        showError('No appointment ID provided. Please go back and select an appointment.');
+        return;
+      }
+      loadAppointmentDetails();
+    });
+
+    // ═══════════════════════════════════════════════════
+    //  STEP 1: Load details from GET /api/appointments/{id}
+    // ═══════════════════════════════════════════════════
+    async function loadAppointmentDetails() {
+      try {
+        const res = await fetch(`${BASE_URL}/appointments/${appointmentId}`);
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || `Appointment not found (${res.status})`);
+        }
+
+        const data = await res.json();
+        // data = { appointmentId, doctorId, doctorName, doctorSpecialization,
+        //          doctorPhone, appointmentDate, timeSlot, status }
+
+        // --- Check if already canceled ---
+        if (data.status === 'CANCELED') {
+          showError('This appointment is already canceled.');
+          return;
+        }
+
+        // --- Fill the details on page ---
+        document.getElementById('detailId').textContent   = `#APT-${data.appointmentId}`;
+        document.getElementById('detailDoctor').textContent = `${data.doctorName}`;
+        document.getElementById('detailSpec').textContent   = data.doctorSpecialization;
+        document.getElementById('detailDate').textContent   = formatDate(data.appointmentDate);
+        document.getElementById('detailTime').textContent   = formatTo12Hour(data.timeSlot);
+        document.getElementById('detailStatus').innerHTML   =
+          `<span class="badge bg-primary rounded-pill px-3">${data.status}</span>`;
+
+        // Show the cancel form, hide loading
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('cancelForm').style.display   = 'block';
+
+      } catch (err) {
+        showError(err.message);
+        console.error(err);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  STEP 2: Cancel → PUT /api/appointments/{id}/cancel
+    // ═══════════════════════════════════════════════════
+    async function cancelAppointment() {
+      const cancelBtn = document.getElementById('cancelBtn');
+      cancelBtn.disabled = true;
+      cancelBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm"></span> Canceling...';
+
+      try {
+        const res = await fetch(`${BASE_URL}/appointments/${appointmentId}/cancel`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || `Cancel failed (${res.status})`);
+        }
+
+        const data = await res.json();   // AppointmentResponse with status: CANCELED
+
+        // Show success
+        document.getElementById('cancelForm').style.display    = 'none';
+        document.getElementById('successState').style.display  = 'block';
+        document.getElementById('successId').textContent       = `#APT-${data.appointmentId}`;
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      } catch (err) {
+        // Re-enable button so user can retry
+        cancelBtn.disabled = false;
+        cancelBtn.innerHTML = '<i class="bi bi-x-circle"></i> Yes, Cancel Appointment';
+        showError(err.message);
+        console.error(err);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  Show Error State
+    // ═══════════════════════════════════════════════════
+    function showError(msg) {
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('cancelForm').style.display   = 'none';
+      document.getElementById('successState').style.display = 'none';
+      document.getElementById('errorState').style.display   = 'block';
+      document.getElementById('errorMsg').textContent       = msg;
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  UTILITIES
+    // ═══════════════════════════════════════════════════
+
+    // "2025-06-15" → "15 Jun 2025"
+    function formatDate(dateStr) {
+      const date = new Date(dateStr + 'T00:00:00');
+      return date.toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric'
+      });
+    }
+
+    // "09:00" → "09:00 AM"
+    function formatTo12Hour(time24) {
+      if (!time24) return '—';
+      const [h, m] = time24.split(':').map(Number);
+      const ampm  = h >= 12 ? 'PM' : 'AM';
+      const hour12 = h % 12 || 12;
+      return `${hour12}:${m.toString().padStart(2, '0')} ${ampm}`;
+    }
+  </script>
+
+</body>
+</html>

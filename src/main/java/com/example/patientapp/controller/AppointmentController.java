@@ -4,6 +4,7 @@ import com.example.patientapp.dto.AppointmentResponse;
 import com.example.patientapp.dto.BookAppointmentRequest;
 import com.example.patientapp.service.AppointmentService;
 
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 
 import org.springframework.format.annotation.DateTimeFormat;
@@ -14,19 +15,9 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
-/**
- * Appointment lifecycle endpoints.
- *
- * Patient-specific views  -> PatientController  (/api/patients/{id}/appointments/...)
- * Doctor-specific views   -> DoctorController   (/api/doctors/{id}/schedule/...)
- *
- * This controller covers:
- *  - Available slot lookup (step 2 of booking)
- *  - Book (step 3 of booking)
- *  - Cancel
- *  - View single / view all  (used by admin or direct lookup)
- */
+//@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/appointments")
 public class AppointmentController {
@@ -37,72 +28,140 @@ public class AppointmentController {
         this.appointmentService = appointmentService;
     }
 
-    // — Available slots ————————————————————————————————————————
+    // ═══════════════════════════════════════
+    //  Helper: Check if logged in
+    // ═══════════════════════════════════════
+    private Long getLoggedInUserId(HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new RuntimeException("Not logged in");
+        }
+        return userId;
+    }
 
-    /**
-     * GET /api/appointments/available-slots?doctorId=1&date=2025-06-15
-     *
-     * Returns open 15-minute slots for a doctor on a given date.
-     * Excludes: already-booked slots + doctor-blocked slots.
-     * Response: ["09:00","09:15","09:30", ...]
-     */
+    private String getLoggedInRole(HttpSession session) {
+        return (String) session.getAttribute("role");
+    }
+
+    // ═══════════════════════════════════════
+    //  Available Slots
+    // ═══════════════════════════════════════
     @GetMapping("/available-slots")
-    public ResponseEntity<List<LocalTime>> getAvailableSlots(
+    public ResponseEntity<?> getAvailableSlots(
             @RequestParam Long doctorId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate date,
+            HttpSession session) {
 
-        return ResponseEntity.ok(appointmentService.getAvailableSlots(doctorId, date));
+        getLoggedInUserId(session);   // just check if logged in
+
+        return ResponseEntity.ok(
+                appointmentService.getAvailableSlots(doctorId, date));
     }
 
-    // — Book ————————————————————————————————————————————————————
-
-    /**
-     * POST /api/appointments/book
-     * Body: { "patientId":1, "doctorId":2, "appointmentDate":"2025-06-15", "timeSlot":"10:15" }
-     *
-     * Returns 400 if the slot is already taken, blocked, or outside working hours.
-     * Returns 201 with appointment details on success.
-     */
+    // ═══════════════════════════════════════
+    //  Book — patientId from session
+    // ═══════════════════════════════════════
     @PostMapping("/book")
-    public ResponseEntity<AppointmentResponse> bookAppointment(
-            @Valid @RequestBody BookAppointmentRequest request) {
+    public ResponseEntity<?> bookAppointment(
+            @Valid @RequestBody BookAppointmentRequest request,
+            HttpSession session) {
+        try {
+            Long userId = getLoggedInUserId(session);
+            String role = getLoggedInRole(session);
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(appointmentService.bookAppointment(request));
+            // 🔒 Patient can only book for themselves
+            if ("PATIENT".equals(role)) {
+                request.setPatientId(userId);
+            }
+
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(appointmentService.bookAppointment(request));
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
     }
 
-    // — Cancel ——————————————————————————————————————————————————
-
-    /**
-     * PUT /api/appointments/{id}/cancel
-     *
-     * Sets appointment status to CANCELED.
-     * The freed slot immediately becomes available for other patients to book.
-     * Can be called by both the patient and the doctor.
-     */
+    // ═══════════════════════════════════════
+    //  Cancel — only owner or admin
+    // ═══════════════════════════════════════
     @PutMapping("/{id}/cancel")
-    public ResponseEntity<AppointmentResponse> cancelAppointment(@PathVariable Long id) {
-        return ResponseEntity.ok(appointmentService.cancelAppointment(id));
+    public ResponseEntity<?> cancelAppointment(
+            @PathVariable Long id,
+            HttpSession session) {
+        try {
+            Long userId = getLoggedInUserId(session);
+            String role = getLoggedInRole(session);
+
+            // 🔒 Patient can only cancel their own
+            if ("PATIENT".equals(role)) {
+                appointmentService.verifyOwnership(id, userId);
+            }
+
+            return ResponseEntity.ok(appointmentService.cancelAppointment(id));
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
     }
 
-    // — View ————————————————————————————————————————————————————
+    // ═══════════════════════════════════════
+    //  My Appointments — only own data
+    // ═══════════════════════════════════════
+    @GetMapping("/my")
+    public ResponseEntity<?> getMyAppointments(HttpSession session) {
+        try {
+            Long userId = getLoggedInUserId(session);
 
-    /**
-     * GET /api/appointments/{id}
-     * View a single appointment by its ID.
-     * Used by both patient and doctor to check a specific booking.
-     */
+            // 🔒 Returns ONLY this patient's appointments
+            return ResponseEntity.ok(
+                    appointmentService.getAppointmentsByPatient(userId));
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    // ═══════════════════════════════════════
+    //  View Single — ownership check
+    // ═══════════════════════════════════════
     @GetMapping("/{id}")
-    public ResponseEntity<AppointmentResponse> getAppointment(@PathVariable Long id) {
-        return ResponseEntity.ok(appointmentService.getAppointmentById(id));
+    public ResponseEntity<?> getAppointment(
+            @PathVariable Long id,
+            HttpSession session) {
+        try {
+            Long userId = getLoggedInUserId(session);
+            String role = getLoggedInRole(session);
+
+            // 🔒 Patient can only view their own
+            if ("PATIENT".equals(role)) {
+                appointmentService.verifyOwnership(id, userId);
+            }
+
+            return ResponseEntity.ok(appointmentService.getAppointmentById(id));
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
     }
 
-    /**
-     * GET /api/appointments
-     * View all appointments — primarily for admin oversight.
-     */
+    // ═══════════════════════════════════════
+    //  View All — admin only
+    // ═══════════════════════════════════════
     @GetMapping
-    public ResponseEntity<List<AppointmentResponse>> viewAllAppointments() {
-        return ResponseEntity.ok(appointmentService.viewAllAppointments());
+    public ResponseEntity<?> viewAllAppointments(HttpSession session) {
+        try {
+            getLoggedInUserId(session);
+            return ResponseEntity.ok(appointmentService.viewAllAppointments());
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", e.getMessage()));
+        }
     }
+    
 }

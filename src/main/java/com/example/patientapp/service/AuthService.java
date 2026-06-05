@@ -9,7 +9,13 @@ import com.example.patientapp.model.Role;
 import com.example.patientapp.repository.AdminRepository;
 import com.example.patientapp.repository.DoctorRepository;
 import com.example.patientapp.repository.PatientRepository;
+
+import jakarta.servlet.http.HttpSession;
+
 import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class AuthService {
@@ -26,7 +32,7 @@ public class AuthService {
         this.adminRepository = adminRepository;
     }
 
-    // — Register —
+    // — Register (NO CHANGES) —
 
     public Object register(RegisterRequest req) {
         if (req.getRole() == null) {
@@ -58,10 +64,9 @@ public class AuthService {
         d.setPassword(req.getPassword());
         d.setPhone(req.getPhone());
         d.setSpecialization(req.getSpecialization());
-
-        // Build the JSON string that goes into the availability column
         if (req.getStartTime() != null && req.getEndTime() != null) {
-            d.setAvailability(buildAvailabilityJson(req.getStartTime(), req.getEndTime()));
+            d.setAvailability(buildAvailabilityJson(
+                    req.getStartTime(), req.getEndTime()));
         }
         return doctorRepository.save(d);
     }
@@ -75,42 +80,93 @@ public class AuthService {
         return adminRepository.save(a);
     }
 
-    // — Login —
+    // — Login (with HttpSession) —
 
-    public String login(LoginRequest req) {
+    public Object login(LoginRequest req, HttpSession session) {
         if (req.getRole() == null) {
             throw new RuntimeException("role is required: PATIENT, DOCTOR, or ADMIN");
         }
+
         return switch (req.getRole()) {
+
             case PATIENT -> {
                 Patient p = patientRepository.findByEmail(req.getEmail())
-                        .orElseThrow(() -> new RuntimeException("No patient found with email: " + req.getEmail()));
-                if (!p.getPassword().equals(req.getPassword())) throw new RuntimeException("Incorrect password");
-                yield "Login successful. Welcome, " + p.getName() + " [PATIENT]";
+                        .orElseThrow(() -> new RuntimeException(
+                                "No patient found with email: " + req.getEmail()));
+
+                if (!p.getPassword().equals(req.getPassword())) {
+                    throw new RuntimeException("Incorrect password");
+                }
+
+                session.setAttribute("userId", p.getPatientId());
+                session.setAttribute("role", "PATIENT");
+                session.setAttribute("name", p.getName());
+                session.setAttribute("email", p.getEmail());
+
+                Map<String, Object> map = new HashMap<>();
+                map.put("id",    p.getPatientId());
+                map.put("name",  p.getName());
+                map.put("email", p.getEmail());
+                map.put("role",  "PATIENT");
+                yield map;
             }
+
             case DOCTOR -> {
                 Doctor d = doctorRepository.findByEmail(req.getEmail())
-                        .orElseThrow(() -> new RuntimeException("No doctor found with email: " + req.getEmail()));
-                if (!d.getPassword().equals(req.getPassword())) throw new RuntimeException("Incorrect password");
-                yield "Login successful. Welcome, Dr. " + d.getName() + " [DOCTOR]";
+                        .orElseThrow(() -> new RuntimeException(
+                                "No doctor found with email: " + req.getEmail()));
+
+                if (!d.getPassword().equals(req.getPassword())) {
+                    throw new RuntimeException("Incorrect password");
+                }
+
+                session.setAttribute("userId", d.getDoctorId());
+                session.setAttribute("role", "DOCTOR");
+                session.setAttribute("name", d.getName());
+                session.setAttribute("email", d.getEmail());
+
+                Map<String, Object> map = new HashMap<>();
+                map.put("id",    d.getDoctorId());
+                map.put("name",  d.getName());
+                map.put("email", d.getEmail());
+                map.put("role",  "DOCTOR");
+                yield map;
             }
+
             case ADMIN -> {
                 Admin a = adminRepository.findByEmail(req.getEmail())
-                        .orElseThrow(() -> new RuntimeException("No admin found with email: " + req.getEmail()));
-                if (!a.getPassword().equals(req.getPassword())) throw new RuntimeException("Incorrect password");
-                yield "Login successful. Welcome, " + a.getName() + " [ADMIN]";
+                        .orElseThrow(() -> new RuntimeException(
+                                "No admin found with email: " + req.getEmail()));
+
+                if (!a.getPassword().equals(req.getPassword())) {
+                    throw new RuntimeException("Incorrect password");
+                }
+
+                session.setAttribute("userId", a.getAdminId());
+                session.setAttribute("role", "ADMIN");
+                session.setAttribute("name", a.getName());
+                session.setAttribute("email", a.getEmail());
+
+                Map<String, Object> map = new HashMap<>();
+                map.put("id",    a.getAdminId());
+                map.put("name",  a.getName());
+                map.put("email", a.getEmail());
+                map.put("role",  "ADMIN");
+                yield map;
             }
         };
     }
 
+    // — Logout —
+
+    public void logout(HttpSession session) {
+        session.invalidate();
+    }
+
     // — Helper —
 
-    /**
-     * Produces the JSON string stored in the availability column.
-     * e.g. buildAvailabilityJson("09:00", "17:00")
-     *   -> {"startTime":"09:00","endTime":"17:00"}
-     */
     public static String buildAvailabilityJson(String startTime, String endTime) {
-        return "{\"startTime\":\"" + startTime + "\",\"endTime\":\"" + endTime + "\"}";
+        return "{\"startTime\":\"" + startTime
+                + "\",\"endTime\":\"" + endTime + "\"}";
     }
 }

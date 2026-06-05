@@ -1,0 +1,118 @@
+/* ===== Background ===== */
+body {
+  background: linear-gradient(135deg, #dbeafe, #eff6ff);
+  font-family: 'Segoe UI', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* ===== Card ===== */
+.card {
+  border-radius: 16px;
+  padding: 25px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  border: none;
+  transition: 0.3s;
+  width: 100%;
+  max-width: 360px;
+}
+.card:hover {
+  transform: translateY(-4px);
+}
+
+/* ===== Heading ===== */
+.card h2 {
+  color: #1a56db;
+  font-weight: 700;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* ===== Inputs ===== */
+.form-control,
+.form-select {
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  padding: 12px;
+  font-size: 15px;
+  transition: all 0.25s ease;
+  background-color: #f9fafb;
+  width: 100%;
+}
+
+/* ===== Label ===== */
+.form-label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 6px;
+  margin-left: 4px;
+  display: block;
+}
+
+/* ===== Focus ===== */
+.form-control:focus,
+.form-select:focus {
+  border-color: #1a56db;
+  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.2);
+  background-color: #fff;
+}
+
+/* ===== Button ===== */
+.btn-primary {
+  background: linear-gradient(to right, #2563eb, #1a56db);
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-weight: 600;
+  font-size: 16px;
+  transition: 0.3s ease;
+  color: #fff;
+}
+.btn-primary:hover {
+  background: linear-gradient(to right, #1e40af, #1a56db);
+  transform: scale(1.03);
+  color: #fff;
+}
+.btn-primary:disabled {
+  opacity: 0.7;
+  transform: none;
+}
+
+/* ===== Message ===== */
+.message {
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-top: 12px;
+  text-align: center;
+  font-weight: 500;
+}
+.error {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+.success {
+  background-color: #dcfce7;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+/* ===== Links ===== */
+a {
+  color: #1a56db;
+  font-weight: 600;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .card {
+    width: 95% !important;
+  }
+}

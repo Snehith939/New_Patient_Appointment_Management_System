@@ -26,6 +26,10 @@ public class AppointmentResponse {
     private LocalDate        appointmentDate;
     private LocalTime        timeSlot;
     private AppointmentStatus status;
+  
+
+    private Long   patientId;
+    private String patientName;
 
     /**
      * Converts an Appointment entity to this DTO.
@@ -43,6 +47,11 @@ public class AppointmentResponse {
         res.setAppointmentDate(appointment.getAppointmentDate());
         res.setTimeSlot(appointment.getTimeSlot());
         res.setStatus(appointment.getStatus());
+        
+
+        res.setPatientId(appointment.getPatient().getPatientId());
+        res.setPatientName(appointment.getPatient().getName());
+
 
         return res;
     }

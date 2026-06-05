@@ -1,7 +1,5 @@
 package com.example.patientapp.service;
 
-
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -9,6 +7,7 @@ import com.example.patientapp.exception.BadRequestException;
 import com.example.patientapp.exception.ResourceNotFoundException;
 import com.example.patientapp.exception.UnauthorizedActionException;
 import com.example.patientapp.model.Appointment;
+import com.example.patientapp.model.AppointmentStatus;       // ← ADD THIS IMPORT
 import com.example.patientapp.model.Doctor;
 import com.example.patientapp.model.Patient;
 import com.example.patientapp.model.Prescription;
@@ -18,288 +17,199 @@ import com.example.patientapp.repository.DoctorRepository;
 import com.example.patientapp.repository.PatientRepository;
 import com.example.patientapp.repository.PrescriptionRepository;
 
+
 import java.time.LocalDate;
 import java.util.List;
 
 @Service
 public class PrescriptionService {
 
-   @Autowired
-   private PrescriptionRepository prescriptionRepository;
+    @Autowired
+    private PrescriptionRepository prescriptionRepository;
 
-   @Autowired
-   private PatientRepository patientRepository;
+    @Autowired
+    private PatientRepository patientRepository;
 
-   @Autowired
-   private DoctorRepository doctorRepository;
+    @Autowired
+    private DoctorRepository doctorRepository;
 
-   @Autowired
-   private AppointmentRepository appointmentRepository;
+    @Autowired
+    private AppointmentRepository appointmentRepository;
 
-   // ✅ ADD PRESCRIPTION
-   public Prescription addPrescription(Prescription prescription,
-                                       Long doctorId,
-                                       Long appointmentId) {
+    // ✅ ADD PRESCRIPTION
+    public Prescription addPrescription(Prescription prescription,
+                                        Long doctorId,
+                                        Long appointmentId) {
 
-       Appointment appointment = appointmentRepository.findById(appointmentId)
-               .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
 
-       Doctor doctor = doctorRepository.findById(doctorId)
-               .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
 
-       if (appointment.getDoctor() == null) {
-           throw new BadRequestException("No doctor assigned to this appointment");
-       }
+        if (appointment.getDoctor() == null) {
+            throw new BadRequestException("No doctor assigned to this appointment");
+        }
 
-       if (!appointment.getDoctor().getDoctorId().equals(doctorId)) {
-           throw new UnauthorizedActionException("You are not authorized to create this prescription");
-       }
+        if (!appointment.getDoctor().getDoctorId().equals(doctorId)) {
+            throw new UnauthorizedActionException(
+                    "You are not authorized to create this prescription");
+        }
 
-       if (prescriptionRepository.existsByAppointmentAppointmentId(appointmentId)) {
-           throw new BadRequestException("Prescription already exists for this appointment");
-       }
+        if (prescriptionRepository.existsByAppointmentAppointmentId(appointmentId)) {
+            throw new BadRequestException(
+                    "Prescription already exists for this appointment");
+        }
 
-       Patient patient = appointment.getPatient();
+        // ✅ Only BOOKED appointments can have prescriptions
+        if (appointment.getStatus() != AppointmentStatus.BOOKED) {
+            throw new BadRequestException(
+                    "Cannot add prescription for appointment with status: " 
+                    + appointment.getStatus());
+        }
 
-       prescription.setAppointment(appointment);
-       prescription.setDoctor(doctor);
-       prescription.setPatient(patient);
+        Patient patient = appointment.getPatient();
 
-       if (prescription.getPrescribedDate() == null) {
-           prescription.setPrescribedDate(LocalDate.now());
-       }
+        prescription.setAppointment(appointment);
+        prescription.setDoctor(doctor);
+        prescription.setPatient(patient);
 
-       if (prescription.getItems() != null) {
-           prescription.getItems().forEach(item -> item.setPrescription(prescription));
-       }
+        if (prescription.getPrescribedDate() == null) {
+            prescription.setPrescribedDate(LocalDate.now());
+        }
 
-       return prescriptionRepository.save(prescription);
-   }
+        if (prescription.getItems() != null) {
+            prescription.getItems().forEach(item -> item.setPrescription(prescription));
+        }
 
-   // ✅ GET ALL
-   public List<Prescription> getAllPrescriptions(Long patientId) {
-       return prescriptionRepository.findByPatientPatientId(patientId);
-   }
+        // ✅ Save prescription first
+        Prescription saved = prescriptionRepository.save(prescription);
 
-   // ✅ GET ONE
-   public Prescription getPrescription(Long prescriptionId) {
-       return prescriptionRepository.findById(prescriptionId)
-               .orElseThrow(() -> new ResourceNotFoundException("Prescription not found"));
-   }
+        // ✅ AUTO-COMPLETE: Mark appointment as COMPLETED
+        appointment.setStatus(AppointmentStatus.COMPLETED);
+        appointmentRepository.save(appointment);
 
-   // ✅ DELETE
-   public void deletePrescription(Long prescriptionId, Long doctorId) {
+        return saved;
+    }
 
-       Prescription prescription = prescriptionRepository.findById(prescriptionId)
-               .orElseThrow(() -> new ResourceNotFoundException("Prescription not found"));
+    // ✅ GET ALL
+    public List<Prescription> getAllPrescriptions(Long patientId) {
+        return prescriptionRepository.findByPatientPatientId(patientId);
+    }
 
-       if (!prescription.getDoctor().getDoctorId().equals(doctorId)) {
-           throw new UnauthorizedActionException(
-                   "You are not authorized to delete this prescription");
-       }
+    // ✅ GET ONE
+    public Prescription getPrescription(Long prescriptionId) {
+        return prescriptionRepository.findById(prescriptionId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Prescription not found"));
+    }
 
-       prescriptionRepository.delete(prescription);
-   }
+    // ✅ DELETE
+    public void deletePrescription(Long prescriptionId, Long doctorId) {
 
-   // ✅ UPDATE (FULL FEATURE: add + update + delete)
-   public Prescription updatePrescription(Long prescriptionId,
-                                          Long doctorId,
-                                          Prescription updatedPrescription) {
+        Prescription prescription = prescriptionRepository.findById(prescriptionId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Prescription not found"));
 
-       Prescription existing = prescriptionRepository.findById(prescriptionId)
-               .orElseThrow(() -> new ResourceNotFoundException("Prescription not found"));
+        if (!prescription.getDoctor().getDoctorId().equals(doctorId)) {
+            throw new UnauthorizedActionException(
+                    "You are not authorized to delete this prescription");
+        }
 
-       if (!existing.getDoctor().getDoctorId().equals(doctorId)) {
-           throw new UnauthorizedActionException(
-                   "You are not authorized to update this prescription");
-       }
+        prescriptionRepository.delete(prescription);
+    }
 
-       //  Update date
-       if (updatedPrescription.getPrescribedDate() != null) {
-           existing.setPrescribedDate(updatedPrescription.getPrescribedDate());
-       }
+    // ✅ UPDATE
+    public Prescription updatePrescription(Long prescriptionId,
+                                           Long doctorId,
+                                           Prescription updatedPrescription) {
 
-       if (updatedPrescription.getItems() != null) {
+        Prescription existing = prescriptionRepository.findById(prescriptionId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Prescription not found"));
 
-           //  STEP 1: REMOVE items not present in payload
-           existing.getItems().removeIf(existingItem ->
-               updatedPrescription.getItems().stream()
-                   .noneMatch(updatedItem ->
-                           updatedItem.getId() != null &&
-                           updatedItem.getId().equals(existingItem.getId()))
-           );
+        if (!existing.getDoctor().getDoctorId().equals(doctorId)) {
+            throw new UnauthorizedActionException(
+                    "You are not authorized to update this prescription");
+        }
 
-           //  STEP 2: UPDATE or ADD
-           for (PrescriptionItem updatedItem : updatedPrescription.getItems()) {
+        if (updatedPrescription.getPrescribedDate() != null) {
+            existing.setPrescribedDate(updatedPrescription.getPrescribedDate());
+        }
 
-               if (updatedItem.getId() != null) {
+        if (updatedPrescription.getItems() != null) {
 
-                   // ✅ UPDATE EXISTING
-                   PrescriptionItem existingItem = existing.getItems().stream()
-                           .filter(item -> item.getId().equals(updatedItem.getId()))
-                           .findFirst()
-                           .orElseThrow(() ->
-                                   new ResourceNotFoundException(
-                                           "Item not found with ID: " + updatedItem.getId()));
+            existing.getItems().removeIf(existingItem ->
+                updatedPrescription.getItems().stream()
+                    .noneMatch(updatedItem ->
+                            updatedItem.getId() != null &&
+                            updatedItem.getId().equals(existingItem.getId()))
+            );
 
-                   if (updatedItem.getMedicineName() != null &&
-                           !updatedItem.getMedicineName().trim().isEmpty()) {
+            for (PrescriptionItem updatedItem : updatedPrescription.getItems()) {
 
-                       existingItem.setMedicineName(updatedItem.getMedicineName().trim());
-                   }
+                if (updatedItem.getId() != null) {
 
-                   if (updatedItem.getInstructions() != null &&
-                           !updatedItem.getInstructions().trim().isEmpty()) {
+                    PrescriptionItem existingItem = existing.getItems().stream()
+                            .filter(item -> item.getId().equals(updatedItem.getId()))
+                            .findFirst()
+                            .orElseThrow(() ->
+                                    new ResourceNotFoundException(
+                                            "Item not found with ID: " 
+                                            + updatedItem.getId()));
 
-                       existingItem.setInstructions(updatedItem.getInstructions().trim());
-                   }
+                    if (updatedItem.getMedicineName() != null &&
+                            !updatedItem.getMedicineName().trim().isEmpty()) {
+                        existingItem.setMedicineName(
+                                updatedItem.getMedicineName().trim());
+                    }
 
-                   if (updatedItem.getNumberOfDays() != null) {
-                       if (updatedItem.getNumberOfDays() <= 0) {
-                           throw new BadRequestException("numberOfDays must be greater than 0");
-                       }
-                       existingItem.setNumberOfDays(updatedItem.getNumberOfDays());
-                   }
+                    if (updatedItem.getInstructions() != null &&
+                            !updatedItem.getInstructions().trim().isEmpty()) {
+                        existingItem.setInstructions(
+                                updatedItem.getInstructions().trim());
+                    }
 
-                   if (updatedItem.getMorning() != null) {
-                       existingItem.setMorning(updatedItem.getMorning());
-                   }
-                   if (updatedItem.getAfternoon() != null) {
-                       existingItem.setAfternoon(updatedItem.getAfternoon());
-                   }
-                   if (updatedItem.getNight() != null) {
-                       existingItem.setNight(updatedItem.getNight());
-                   }
+                    if (updatedItem.getNumberOfDays() != null) {
+                        if (updatedItem.getNumberOfDays() <= 0) {
+                            throw new BadRequestException(
+                                    "numberOfDays must be greater than 0");
+                        }
+                        existingItem.setNumberOfDays(updatedItem.getNumberOfDays());
+                    }
 
-               } else {
+                    if (updatedItem.getMorning() != null) {
+                        existingItem.setMorning(updatedItem.getMorning());
+                    }
+                    if (updatedItem.getAfternoon() != null) {
+                        existingItem.setAfternoon(updatedItem.getAfternoon());
+                    }
+                    if (updatedItem.getNight() != null) {
+                        existingItem.setNight(updatedItem.getNight());
+                    }
 
-                   //  ADD NEW ITEM
-                   if (updatedItem.getMedicineName() == null ||
-                       updatedItem.getMedicineName().trim().isEmpty()) {
+                } else {
 
-                       throw new BadRequestException("Medicine name is required for new item");
-                   }
+                    if (updatedItem.getMedicineName() == null ||
+                        updatedItem.getMedicineName().trim().isEmpty()) {
+                        throw new BadRequestException(
+                                "Medicine name is required for new item");
+                    }
 
-                   if (updatedItem.getNumberOfDays() == null ||
-                       updatedItem.getNumberOfDays() <= 0) {
+                    if (updatedItem.getNumberOfDays() == null ||
+                        updatedItem.getNumberOfDays() <= 0) {
+                        throw new BadRequestException(
+                                "Valid numberOfDays required");
+                    }
 
-                       throw new BadRequestException("Valid numberOfDays required");
-                   }
+                    updatedItem.setMedicineName(
+                            updatedItem.getMedicineName().trim());
+                    updatedItem.setPrescription(existing);
+                    existing.getItems().add(updatedItem);
+                }
+            }
+        }
 
-                   updatedItem.setMedicineName(updatedItem.getMedicineName().trim());
-
-                   updatedItem.setPrescription(existing);
-                   existing.getItems().add(updatedItem);
-               }
-           }
-       }
-
-       return prescriptionRepository.save(existing);
-   }
+        return prescriptionRepository.save(existing);
+    }
 }
-//
-//import com.example.patientapp.dto.PrescriptionRequest;
-//import com.example.patientapp.dto.PrescriptionResponse;
-//import com.example.patientapp.model.Doctor;
-//import com.example.patientapp.model.Patient;
-//import com.example.patientapp.model.Prescription;
-//import com.example.patientapp.repository.DoctorRepository;
-//import com.example.patientapp.repository.PatientRepository;
-//import com.example.patientapp.repository.PrescriptionRepository;
-//import org.springframework.stereotype.Service;
-//
-//import java.time.LocalDate;
-//import java.util.List;
-//import java.util.stream.Collectors;
-//
-//@Service
-//public class PrescriptionService {
-//
-//    private final PrescriptionRepository prescriptionRepository;
-//    private final PatientRepository patientRepository;
-//    private final DoctorRepository doctorRepository;
-//
-//    public PrescriptionService(PrescriptionRepository prescriptionRepository,
-//                               PatientRepository patientRepository,
-//                               DoctorRepository doctorRepository) {
-//        this.prescriptionRepository = prescriptionRepository;
-//        this.patientRepository = patientRepository;
-//        this.doctorRepository = doctorRepository;
-//    }
-//
-//    // — Create —
-//
-//    /**
-//     * Doctor issues a new prescription to a patient.
-//     * prescribedDate is set to today automatically.
-//     */
-//    public PrescriptionResponse createPrescription(PrescriptionRequest req) {
-//        Patient patient = patientRepository.findById(req.getPatientId())
-//                .orElseThrow(() -> new RuntimeException("Patient not found: " + req.getPatientId()));
-//        Doctor doctor = doctorRepository.findById(req.getDoctorId())
-//                .orElseThrow(() -> new RuntimeException("Doctor not found: " + req.getDoctorId()));
-//
-//        Prescription prescription = new Prescription();
-//        prescription.setPatient(patient);
-//        prescription.setDoctor(doctor);
-//        prescription.setMedicineName(req.getMedicineName());
-//        prescription.setDose(req.getDose());
-//        prescription.setNumberOfDays(req.getNumberOfDays());
-//        prescription.setInstructions(req.getInstructions());
-//        prescription.setPrescribedDate(LocalDate.now());
-//
-//        return PrescriptionResponse.from(prescriptionRepository.save(prescription));
-//    }
-//
-//    // — Read —
-//
-//    /**
-//     * Patient retrieves all their prescriptions (all doctors, all dates).
-//     */
-//    public List<PrescriptionResponse> getPatientPrescriptions(Long patientId) {
-//        if (!patientRepository.existsById(patientId)) {
-//            throw new RuntimeException("Patient not found: " + patientId);
-//        }
-//        return prescriptionRepository.findByPatient_PatientId(patientId)
-//                .stream()
-//                .map(PrescriptionResponse::from)
-//                .collect(Collectors.toList());
-//    }
-//
-//    // — Update —
-//
-//    /**
-//     * Doctor updates an existing prescription.
-//     * Only non-null, non-blank fields in the request overwrite the stored value.
-//     * patientId and doctorId are NOT re-assignable - a prescription's ownership
-//     * is fixed at creation time.
-//     */
-//    public PrescriptionResponse updatePrescription(Long prescriptionId, PrescriptionRequest req) {
-//        Prescription prescription = prescriptionRepository.findById(prescriptionId)
-//                .orElseThrow(() -> new RuntimeException("Prescription not found: " + prescriptionId));
-//
-//        if (req.getMedicineName() != null && !req.getMedicineName().isBlank()) {
-//            prescription.setMedicineName(req.getMedicineName());
-//        }
-//        if (req.getDose() != null && !req.getDose().isBlank()) {
-//            prescription.setDose(req.getDose());
-//        }
-//        if (req.getNumberOfDays() != null && !req.getNumberOfDays().isBlank()) {
-//            prescription.setNumberOfDays(req.getNumberOfDays());
-//        }
-//        if (req.getInstructions() != null && !req.getInstructions().isBlank()) {
-//            prescription.setInstructions(req.getInstructions());
-//        }
-//
-//        return PrescriptionResponse.from(prescriptionRepository.save(prescription));
-//    }
-//
-//    // — Delete —
-//
-//    public void deletePrescription(Long prescriptionId) {
-//        if (!prescriptionRepository.existsById(prescriptionId)) {
-//            throw new RuntimeException("Prescription not found: " + prescriptionId);
-//        }
-//        prescriptionRepository.deleteById(prescriptionId);
-//    }
-//}

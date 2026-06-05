@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Appointments</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f0f2f5;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .navbar-brand { font-weight: 700; color: #1a56db !important; font-size: 1.4rem; }
+    .btn-logout {
+      background: #fee2e2; color: #dc2626; border: none;
+      border-radius: 8px; font-weight: 600; font-size: 0.85rem;
+      padding: 6px 16px; transition: 0.2s;
+    }
+    .btn-logout:hover { background: #dc2626; color: #fff; }
+
+    .page-header h2 { font-weight: 700; color: #1f2937; font-size: 1.6rem; }
+    .breadcrumb-item a { color: #6b7280; text-decoration: none; }
+    .breadcrumb-item.active { color: #1a56db; }
+
+    .card {
+      border: none; border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .stat-mini {
+      background: #fff; border-radius: 10px; padding: 18px 20px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+      display: flex; align-items: center; gap: 12px; transition: all 0.2s;
+    }
+    .stat-mini:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .stat-mini .icon-box {
+      width: 42px; height: 42px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+    }
+    .stat-mini h4 { font-size: 1.3rem; font-weight: 700; margin: 0; }
+    .stat-mini p { font-size: 0.78rem; color: #6b7280; margin: 0; }
+
+    .filter-tabs .btn {
+      border-radius: 8px; font-weight: 600; font-size: 0.85rem;
+      padding: 8px 20px; border: 1.5px solid #e5e7eb;
+      color: #4b5563; background: #fff; transition: all 0.2s;
+    }
+    .filter-tabs .btn:hover { background: #eff6ff; border-color: #93c5fd; color: #1a56db; }
+    .filter-tabs .btn.active { background: #1a56db; color: #fff; border-color: #1a56db; }
+
+    .table { margin: 0; }
+    .table thead th {
+      background: #f9fafb; font-size: 0.78rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280;
+      padding: 14px 16px; border-bottom: 2px solid #e5e7eb;
+    }
+    .table tbody td {
+      padding: 16px; vertical-align: middle;
+      font-size: 0.9rem; border-bottom: 1px solid #f3f4f6;
+    }
+    .table tbody tr:hover { background: #f9fafb; }
+
+    .badge-booked {
+      background: #dbeafe; color: #1d4ed8; font-weight: 600;
+      font-size: 0.75rem; padding: 6px 14px; border-radius: 20px;
+    }
+    .badge-completed {
+      background: #d1fae5; color: #059669; font-weight: 600;
+      font-size: 0.75rem; padding: 6px 14px; border-radius: 20px;
+    }
+    .badge-canceled {
+      background: #fee2e2; color: #dc2626; font-weight: 600;
+      font-size: 0.75rem; padding: 6px 14px; border-radius: 20px;
+    }
+
+    .doctor-info { display: flex; align-items: center; gap: 10px; }
+    .doc-avatar {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-weight: 700; color: #fff;
+    }
+    .doc-name { font-weight: 600; font-size: 0.9rem; }
+
+    .btn-action {
+      font-size: 0.78rem; padding: 5px 14px; border-radius: 6px;
+      font-weight: 600; border: 1.5px solid; transition: all 0.2s;
+      text-decoration: none;
+    }
+    .btn-cancel { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
+    .btn-cancel:hover { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .btn-rebook { color: #1a56db; border-color: #93c5fd; background: #eff6ff; }
+    .btn-rebook:hover { background: #1a56db; color: #fff; border-color: #1a56db; }
+
+    .loading-state, .empty-state, .error-state {
+      text-align: center; padding: 50px 20px;
+    }
+    .empty-state i { font-size: 3rem; color: #d1d5db; }
+    .error-state i { font-size: 3rem; color: #ef4444; }
+    .empty-state p, .error-state p { color: #9ca3af; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAVBAR (✅ CHANGED — dynamic name + logout) ===== -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+    <div class="container">
+      <a class="navbar-brand" href="#"><i class="bi bi-hospital"></i> MediCare</a>
+      <div class="d-flex align-items-center gap-3">
+        <a href="patient_dashboard.html" class="btn btn-outline-primary btn-sm rounded-3">
+          <i class="bi bi-house"></i> Dashboard
+        </a>
+        <div class="d-flex align-items-center gap-2">
+          <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
+               style="width:36px;height:36px;font-size:0.85rem;font-weight:600;"
+               id="avatarInitials">--</div>
+          <div>
+            <div style="font-size:0.85rem;font-weight:600;" id="navName">Patient</div>
+            <div style="font-size:0.7rem;color:#6b7280;">Patient</div>
+          </div>
+        </div>
+        <button class="btn btn-logout" onclick="logout()">
+          <i class="bi bi-box-arrow-right"></i> Logout
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <div class="container py-4">
+
+    <!-- Page Header -->
+    <div class="page-header d-flex justify-content-between align-items-start mb-4">
+      <div>
+        <h2><i class="bi bi-clipboard2-pulse"></i> My Appointments</h2>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="patient_dashboard.html">Dashboard</a></li>
+            <li class="breadcrumb-item active">My Appointments</li>
+          </ol>
+        </nav>
+      </div>
+      <a href="book_appointment.html" class="btn btn-primary rounded-3">
+        <i class="bi bi-plus-circle"></i> Book New
+      </a>
+    </div>
+
+    <!-- ===== STATS ROW ===== -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="stat-mini">
+          <div class="icon-box" style="background:#eff6ff;color:#1a56db;">
+            <i class="bi bi-calendar-check"></i>
+          </div>
+          <div><h4 id="statTotal">0</h4><p>Total</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-mini">
+          <div class="icon-box" style="background:#dbeafe;color:#1d4ed8;">
+            <i class="bi bi-hourglass-split"></i>
+          </div>
+          <div><h4 id="statBooked">0</h4><p>Upcoming</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-mini">
+          <div class="icon-box" style="background:#d1fae5;color:#059669;">
+            <i class="bi bi-check-circle"></i>
+          </div>
+          <div><h4 id="statCompleted">0</h4><p>Completed</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-mini">
+          <div class="icon-box" style="background:#fee2e2;color:#dc2626;">
+            <i class="bi bi-x-circle"></i>
+          </div>
+          <div><h4 id="statCanceled">0</h4><p>Canceled</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== APPOINTMENTS TABLE ===== -->
+    <div class="card">
+      <div class="card-body">
+
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <div class="filter-tabs d-flex gap-2" id="filterTabs">
+            <button class="btn active" onclick="filterApt('all', this)">
+              All (<span id="filterAll">0</span>)
+            </button>
+            <button class="btn" onclick="filterApt('BOOKED', this)">
+              Upcoming (<span id="filterBooked">0</span>)
+            </button>
+            <button class="btn" onclick="filterApt('COMPLETED', this)">
+              Completed (<span id="filterCompleted">0</span>)
+            </button>
+            <button class="btn" onclick="filterApt('CANCELED', this)">
+              Canceled (<span id="filterCanceled">0</span>)
+            </button>
+          </div>
+          <div>
+            <input type="text" class="form-control form-control-sm rounded-3"
+                   placeholder="🔍 Search appointments..." style="width:220px;"
+                   id="searchInput" onkeyup="searchApt(this.value)">
+          </div>
+        </div>
+
+        <!-- Loading State -->
+        <div class="loading-state" id="loadingState">
+          <div class="spinner-border text-primary mb-3"></div>
+          <p class="text-muted">Loading your appointments...</p>
+        </div>
+
+        <!-- Table -->
+        <div class="table-responsive" id="tableContainer" style="display:none;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Doctor</th>
+                <th>Specialization</th>
+                <th>Time</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="aptBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState" style="display:none;">
+          <i class="bi bi-calendar-x"></i>
+          <p>No appointments found.</p>
+          <a href="book_appointment.html" class="btn btn-primary rounded-3 mt-2">
+            <i class="bi bi-plus-circle"></i> Book Your First Appointment
+          </a>
+        </div>
+
+        <!-- Error State -->
+        <div class="error-state" id="errorState" style="display:none;">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <p id="errorMsg">Something went wrong.</p>
+          <button class="btn btn-primary rounded-3 mt-2" onclick="loadAppointments()">
+            <i class="bi bi-arrow-clockwise"></i> Retry
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- ✅ CHANGED: Load auth.js -->
+  <script src="auth.js"></script>
+
+  <script>
+    // ═══════════════════════════════════════════════════
+    //  ✅ CHANGED: Login check (no BASE_URL, no LOGGED_IN_PATIENT_ID)
+    // ═══════════════════════════════════════════════════
+    const user = getLoggedInUser();
+    if (!user) { window.location.href = 'login.html'; }
+
+    // ✅ CHANGED: Set navbar from logged-in user
+    document.getElementById('navName').textContent = user.name || 'Patient';
+    document.getElementById('avatarInitials').textContent =
+      user.name ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2) : '--';
+
+    let allAppointments = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadAppointments();
+    });
+
+    // ═══════════════════════════════════════════════════
+    //  ✅ CHANGED: authFetch + /appointments/my
+    // ═══════════════════════════════════════════════════
+    async function loadAppointments() {
+      showLoading();
+
+      try {
+        // ✅ CHANGED: authFetch + /my (only YOUR appointments)
+        const res = await authFetch(`${BASE_URL}/appointments/my`);
+
+        if (!res || !res.ok) {
+          const text = await res.text();
+          throw new Error('Failed to load: ' + text);
+        }
+
+        const data = await res.json();
+
+        allAppointments = Array.isArray(data) ? data : [];
+
+        if (allAppointments.length === 0) {
+          showEmpty();
+          updateStats();
+          updateFilterCounts();
+          return;
+        }
+
+        allAppointments.sort((a, b) =>
+          new Date(b.appointmentDate) - new Date(a.appointmentDate)
+        );
+
+        renderTable(allAppointments);
+        updateStats();
+        updateFilterCounts();
+        showTable();
+
+      } catch (err) {
+        showError(err.message);
+        console.error(err);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  RENDER TABLE ROWS (no change)
+    // ═══════════════════════════════════════════════════
+    function renderTable(appointments) {
+      const tbody = document.getElementById('aptBody');
+      tbody.innerHTML = '';
+
+      appointments.forEach(apt => {
+        const row = document.createElement('tr');
+        row.dataset.status = apt.status;
+        row.innerHTML = `
+          <td><strong>#${apt.appointmentId}</strong></td>
+          <td><strong>${formatDate(apt.appointmentDate)}</strong></td>
+          <td>
+            <div class="doctor-info">
+              <div class="doc-avatar" style="background:${getAvatarBg(apt.status)};">
+                ${getInitials(apt.doctorName)}
+              </div>
+              <span class="doc-name">${apt.doctorName}</span>
+            </div>
+          </td>
+          <td>${apt.doctorSpecialization}</td>
+          <td>${formatTo12Hour(apt.timeSlot)}</td>
+          <td>${getStatusBadge(apt.status)}</td>
+          <td>${getActionButtons(apt)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  UPDATE STATS (no change)
+    // ═══════════════════════════════════════════════════
+    function updateStats() {
+      const total     = allAppointments.length;
+      const booked    = allAppointments.filter(a => a.status === 'BOOKED').length;
+      const completed = allAppointments.filter(a => a.status === 'COMPLETED').length;
+      const canceled  = allAppointments.filter(a => a.status === 'CANCELED').length;
+
+      document.getElementById('statTotal').textContent     = total;
+      document.getElementById('statBooked').textContent    = booked;
+      document.getElementById('statCompleted').textContent = completed;
+      document.getElementById('statCanceled').textContent  = canceled;
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  UPDATE FILTER TAB COUNTS (no change)
+    // ═══════════════════════════════════════════════════
+    function updateFilterCounts() {
+      document.getElementById('filterAll').textContent =
+        allAppointments.length;
+      document.getElementById('filterBooked').textContent =
+        allAppointments.filter(a => a.status === 'BOOKED').length;
+      document.getElementById('filterCompleted').textContent =
+        allAppointments.filter(a => a.status === 'COMPLETED').length;
+      document.getElementById('filterCanceled').textContent =
+        allAppointments.filter(a => a.status === 'CANCELED').length;
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  FILTER BY STATUS TAB (no change)
+    // ═══════════════════════════════════════════════════
+    function filterApt(status, btn) {
+      document.querySelectorAll('.filter-tabs .btn')
+              .forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const rows = document.querySelectorAll('#aptBody tr');
+      let visibleCount = 0;
+
+      rows.forEach(row => {
+        if (status === 'all' || row.dataset.status === status) {
+          row.style.display = '';
+          visibleCount++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      document.getElementById('emptyState').style.display =
+        visibleCount === 0 ? 'block' : 'none';
+      document.getElementById('tableContainer').style.display =
+        visibleCount === 0 ? 'none' : 'block';
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  SEARCH (no change)
+    // ═══════════════════════════════════════════════════
+    function searchApt(query) {
+      const rows = document.querySelectorAll('#aptBody tr');
+      let visibleCount = 0;
+      query = query.toLowerCase();
+
+      rows.forEach(row => {
+        if (row.textContent.toLowerCase().includes(query)) {
+          row.style.display = '';
+          visibleCount++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      document.getElementById('emptyState').style.display =
+        visibleCount === 0 ? 'block' : 'none';
+      document.getElementById('tableContainer').style.display =
+        visibleCount === 0 ? 'none' : 'block';
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  HELPERS (no change)
+    // ═══════════════════════════════════════════════════
+
+    function getStatusBadge(status) {
+      switch (status) {
+        case 'BOOKED':    return '<span class="badge-booked">BOOKED</span>';
+        case 'COMPLETED': return '<span class="badge-completed">COMPLETED</span>';
+        case 'CANCELED':  return '<span class="badge-canceled">CANCELED</span>';
+        default:          return `<span class="badge bg-secondary">${status}</span>`;
+      }
+    }
+
+    function getActionButtons(apt) {
+      switch (apt.status) {
+        case 'BOOKED':
+          return `<a href="cancel_appointment.html?id=${apt.appointmentId}"
+                     class="btn btn-action btn-cancel">
+                    <i class="bi bi-x-lg"></i> Cancel
+                  </a>`;
+        case 'CANCELED':
+          return `<a href="book_appointment.html"
+                     class="btn btn-action btn-rebook">
+                    <i class="bi bi-arrow-repeat"></i> Rebook
+                  </a>`;
+        case 'COMPLETED':
+          return `<span class="text-muted" style="font-size:0.8rem;">
+                    <i class="bi bi-check-circle"></i> Done
+                  </span>`;
+        default:
+          return '—';
+      }
+    }
+
+    function getAvatarBg(status) {
+      switch (status) {
+        case 'BOOKED':    return '#1d4ed8';
+        case 'COMPLETED': return '#059669';
+        case 'CANCELED':  return '#dc2626';
+        default:          return '#6b7280';
+      }
+    }
+
+    function getInitials(name) {
+      if (!name) return '?';
+      return name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2);
+    }
+
+    function formatDate(dateStr) {
+      const date = new Date(dateStr + 'T00:00:00');
+      return date.toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric'
+      });
+    }
+
+    function formatTo12Hour(time24) {
+      if (!time24) return '—';
+      const [h, m] = time24.split(':').map(Number);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const hour12 = h % 12 || 12;
+      return `${hour12}:${m.toString().padStart(2, '0')} ${ampm}`;
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  UI STATE MANAGEMENT (no change)
+    // ═══════════════════════════════════════════════════
+    function showLoading() {
+      document.getElementById('loadingState').style.display    = 'block';
+      document.getElementById('tableContainer').style.display  = 'none';
+      document.getElementById('emptyState').style.display      = 'none';
+      document.getElementById('errorState').style.display      = 'none';
+    }
+    function showTable() {
+      document.getElementById('loadingState').style.display    = 'none';
+      document.getElementById('tableContainer').style.display  = 'block';
+      document.getElementById('emptyState').style.display      = 'none';
+      document.getElementById('errorState').style.display      = 'none';
+    }
+    function showEmpty() {
+      document.getElementById('loadingState').style.display    = 'none';
+      document.getElementById('tableContainer').style.display  = 'none';
+      document.getElementById('emptyState').style.display      = 'block';
+      document.getElementById('errorState').style.display      = 'none';
+    }
+    function showError(msg) {
+      document.getElementById('loadingState').style.display    = 'none';
+      document.getElementById('tableContainer').style.display  = 'none';
+      document.getElementById('emptyState').style.display      = 'none';
+      document.getElementById('errorState').style.display      = 'block';
+      document.getElementById('errorMsg').textContent          = msg;
+    }
+  </script>
+
+</body>
+</html>

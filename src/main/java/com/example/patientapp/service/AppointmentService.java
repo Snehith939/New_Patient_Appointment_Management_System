@@ -113,25 +113,59 @@ public class AppointmentService {
         LocalTime current = start;
         while (current.isBefore(end)) {
             slots.add(current);
-            current = current.plusMinutes(15);
+            current = current.plusMinutes(20);
         }
         return slots;
     }
 
     // — Book appointment —
+
     @Transactional
     public AppointmentResponse bookAppointment(BookAppointmentRequest req) {
-        Patient patient = patientRepository.findById(req.getPatientId())
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found: " + req.getPatientId()));
-        Doctor doctor = doctorRepository.findById(req.getDoctorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found: " + req.getDoctorId()));
 
+        if (req.getPatientId() == null || req.getDoctorId() == null
+                || req.getAppointmentDate() == null || req.getTimeSlot() == null) {
+            throw new BadRequestException(
+                    "All fields are required: patientId, doctorId, appointmentDate, timeSlot");
+        }
+
+        // Validation 2: Cannot book for a past DATE
+        if (req.getAppointmentDate().isBefore(LocalDate.now())) {
+            throw new BadRequestException(
+                    "Cannot book appointment for a past date: " + req.getAppointmentDate());
+        }
+
+        // Validation 3: Cannot book a past TIME SLOT on TODAY
+        if (req.getAppointmentDate().isEqual(LocalDate.now())) {
+            if (req.getTimeSlot().isBefore(LocalTime.now())) {
+                throw new BadRequestException(
+                        "Cannot book a past time slot: " + req.getTimeSlot()
+                        + ". Current time is: " + LocalTime.now().withNano(0));
+            }
+        }
+
+       
+        // Validation 4: Check if patient exists
+        Patient patient = patientRepository.findById(req.getPatientId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Patient not found with ID: " + req.getPatientId()));
+
+        // Validation 5: Check if doctor exists
+        Doctor doctor = doctorRepository.findById(req.getDoctorId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Doctor not found with ID: " + req.getDoctorId()));
+
+        // Validation 6: Check if the requested slot is available
         List<LocalTime> available = getAvailableSlots(req.getDoctorId(), req.getAppointmentDate());
         if (!available.contains(req.getTimeSlot())) {
             throw new SlotConflictException(
                     "Slot " + req.getTimeSlot() + " on " + req.getAppointmentDate()
                             + " is not available for Dr. " + doctor.getName());
         }
+
+        // ═══════════════════════════════════════════════════
+        //  CREATE & SAVE APPOINTMENT
+        // ═══════════════════════════════════════════════════
 
         Appointment appointment = new Appointment();
         appointment.setPatient(patient);
@@ -172,4 +206,46 @@ public class AppointmentService {
                         .orElseThrow(() -> new ResourceNotFoundException("Appointment not found: " + id))
         );
     }
+    
+ // — Complete appointment —
+
+    @Transactional
+    public AppointmentResponse completeAppointment(Long appointmentId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Appointment not found: " + appointmentId));
+
+        // Only BOOKED appointments can be completed
+        if (appointment.getStatus() != AppointmentStatus.BOOKED) {
+            throw new BadRequestException(
+                    "Cannot complete appointment with status: " 
+                    + appointment.getStatus());
+        }
+
+        appointment.setStatus(AppointmentStatus.COMPLETED);
+        return AppointmentResponse.from(appointmentRepository.save(appointment));
+    }
+    
+ // ✅ Verify appointment belongs to patient
+    public void verifyOwnership(Long appointmentId, Long patientId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Appointment not found: " + appointmentId));
+
+        if (!appointment.getPatient().getPatientId().equals(patientId)) {
+            throw new RuntimeException(
+                    "You are not authorized to access this appointment");
+        }
+    }
+
+    // ✅ Get appointments by patient
+    @Transactional(readOnly = true)
+    public List<AppointmentResponse> getAppointmentsByPatient(Long patientId) {
+        return appointmentRepository.findByPatient_PatientId(patientId)
+                .stream()
+                .map(AppointmentResponse::from)
+                .collect(Collectors.toList());
+    }
+    
+    
 }
