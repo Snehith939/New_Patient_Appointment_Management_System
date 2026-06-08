@@ -86,4 +86,23 @@ public class PaymentController {
     public ResponseEntity<List<PaymentResponse>> getPaymentHistory(@PathVariable Long patientId) {
         return ResponseEntity.ok(paymentService.getPaymentHistory(patientId));
     }
+
+    // — Razorpay Key Config ——————————————————————————————————
+    @GetMapping("/config")
+    public ResponseEntity<java.util.Map<String, String>> getConfig() {
+        return ResponseEntity.ok(java.util.Map.of("key", paymentService.getRazorpayKeyId()));
+    }
+
+    // — Record Failed Payment —————————————————————————————————
+    @PostMapping("/failed")
+    public ResponseEntity<PaymentResponse> recordFailedPayment(@RequestBody java.util.Map<String, String> payload) {
+        String orderId = payload.get("razorpay_order_id");
+        return ResponseEntity.ok(paymentService.recordFailedPayment(orderId));
+    }
+
+    // — Process Refund ————————————————————————————————————————
+    @PostMapping("/refund")
+    public ResponseEntity<PaymentResponse> refundPayment(@RequestBody com.example.patientapp.dto.RefundRequest request) {
+        return ResponseEntity.ok(paymentService.refundPayment(request));
+    }
 }

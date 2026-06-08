@@ -66,11 +66,11 @@ public class AppointmentService {
         LocalTime[] window = parseAvailabilityJson(doctor.getAvailability());
         List<LocalTime> all = generateAllSlots(window[0], window[1]);
 
-        // Slots taken by real appointments (BOOKED or COMPLETED - not CANCELED)
+        // Slots taken by real appointments (only BOOKED or COMPLETED lock the slot)
         Set<LocalTime> taken = appointmentRepository
-                .findByDoctor_DoctorIdAndAppointmentDateAndStatusNot(
-                        doctorId, date, AppointmentStatus.CANCELED)
+                .findByDoctor_DoctorIdAndAppointmentDateOrderByTimeSlotAsc(doctorId, date)
                 .stream()
+                .filter(app -> app.getStatus() == AppointmentStatus.BOOKED || app.getStatus() == AppointmentStatus.COMPLETED)
                 .map(Appointment::getTimeSlot)
                 .collect(Collectors.toSet());
 
@@ -172,7 +172,7 @@ public class AppointmentService {
         appointment.setDoctor(doctor);
         appointment.setAppointmentDate(req.getAppointmentDate());
         appointment.setTimeSlot(req.getTimeSlot());
-        appointment.setStatus(AppointmentStatus.BOOKED);
+        appointment.setStatus(AppointmentStatus.PENDING_PAYMENT);
 
         return AppointmentResponse.from(appointmentRepository.save(appointment));
     }
@@ -183,7 +183,7 @@ public class AppointmentService {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found: " + appointmentId));
         
-        if (appointment.getStatus() != AppointmentStatus.BOOKED) {
+        if (appointment.getStatus() != AppointmentStatus.BOOKED && appointment.getStatus() != AppointmentStatus.PENDING_PAYMENT) {
             throw new BadRequestException(
                     "Cannot cancel appointment with status: " + appointment.getStatus());
         }

@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Book an Appointment</title>
+  <title>Book an Appointment - MediCare</title>
+  <meta name="description" content="Book a doctor appointment online with secure Razorpay payment.">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
   <style>
@@ -43,6 +44,11 @@
       border-color: #1a56db;
       box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.12);
     }
+    .field-error {
+      font-size: 0.78rem; color: #dc2626; margin-top: 4px;
+      display: none;
+    }
+    .field-error.show { display: block; }
 
     .time-slot {
       display: inline-block; padding: 8px 18px;
@@ -61,8 +67,10 @@
     .summary-item .label { color: #6b7280; }
     .summary-item .value { font-weight: 600; color: #1f2937; }
     .fee-box {
-      background: #eff6ff; border-radius: 10px;
+      background: linear-gradient(135deg, #eff6ff, #dbeafe);
+      border-radius: 10px;
       padding: 16px; text-align: center; margin: 16px 0;
+      border: 1px solid #bfdbfe;
     }
     .fee-box .amount { font-size: 1.8rem; font-weight: 700; color: #1a56db; }
     .fee-box .desc { font-size: 0.8rem; color: #6b7280; }
@@ -72,28 +80,58 @@
     }
 
     .btn-book {
-      background: #1a56db; border: none; border-radius: 10px;
-      padding: 12px; font-weight: 600; font-size: 1rem; transition: all 0.2s;
+      background: linear-gradient(135deg, #1a56db, #2563eb); border: none; border-radius: 10px;
+      padding: 14px; font-weight: 700; font-size: 1rem; transition: all 0.2s; color: #fff;
     }
     .btn-book:hover {
-      background: #1e40af; transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(26, 86, 219, 0.3);
+      background: linear-gradient(135deg, #1e40af, #1a56db);
+      transform: translateY(-1px); color: #fff;
+      box-shadow: 0 4px 12px rgba(26, 86, 219, 0.35);
     }
     .btn-book:disabled {
       background: #93b4f5; transform: none;
-      box-shadow: none; cursor: not-allowed;
+      box-shadow: none; cursor: not-allowed; color: #fff;
+    }
+
+    .razorpay-badge {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      margin-top: 10px; font-size: 0.75rem; color: #6b7280;
     }
 
     .modal-content { border: none; border-radius: 16px; }
     .success-icon { font-size: 4rem; color: #10b981; }
+    .fail-icon { font-size: 4rem; color: #ef4444; }
 
     .slots-loading { text-align: center; padding: 20px; color: #6b7280; }
     .no-slots { text-align: center; padding: 20px; color: #ef4444; font-weight: 500; }
+
+    /* Payment status overlay */
+    #paymentOverlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 2000;
+    }
+    #paymentOverlay.show { display: flex; }
+    .overlay-card {
+      background: #fff; border-radius: 20px; padding: 40px 36px;
+      text-align: center; max-width: 380px; width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      animation: fadeInUp 0.3s ease;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .spinner-pay {
+      width: 56px; height: 56px; margin: 0 auto 16px;
+      border: 5px solid #e5e7eb; border-top-color: #1a56db;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
 
-  <!-- ===== NAVBAR (✅ CHANGED — dynamic name + logout) ===== -->
+  <!-- ===== NAVBAR ===== -->
   <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
     <div class="container">
       <a class="navbar-brand" href="#"><i class="bi bi-hospital"></i> MediCare</a>
@@ -117,6 +155,15 @@
     </div>
   </nav>
 
+  <!-- ===== PAYMENT PROCESSING OVERLAY ===== -->
+  <div id="paymentOverlay">
+    <div class="overlay-card" id="overlayContent">
+      <div class="spinner-pay"></div>
+      <h5 id="overlayTitle" style="font-weight:700;margin-bottom:8px;">Processing Payment...</h5>
+      <p id="overlayMsg" style="color:#6b7280;font-size:0.9rem;margin:0;">Please wait while we secure your appointment.</p>
+    </div>
+  </div>
+
   <!-- ===== MAIN CONTENT ===== -->
   <div class="container py-4">
     <div class="page-header mb-4">
@@ -135,33 +182,46 @@
         <div class="card p-4">
 
           <div class="mb-3">
-            <label class="form-label">Select Doctor</label>
+            <label class="form-label">Select Doctor <span class="text-danger">*</span></label>
             <select class="form-select" id="docSelect" onchange="onDoctorOrDateChange()">
               <option value="">— Choose Doctor —</option>
             </select>
+            <div class="field-error" id="docError"><i class="bi bi-exclamation-circle"></i> Please select a doctor.</div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Choose Date</label>
+            <label class="form-label">Choose Date <span class="text-danger">*</span></label>
             <input type="date" class="form-control" id="aptDate" onchange="onDoctorOrDateChange()">
+            <div class="field-error" id="dateError"><i class="bi bi-exclamation-circle"></i> Please select a future date.</div>
           </div>
 
           <div class="mb-4">
-            <label class="form-label">Available Time Slots</label>
+            <label class="form-label">Available Time Slots <span class="text-danger">*</span></label>
             <div id="timeSlots">
               <p class="text-muted" style="font-size:0.85rem;">
                 Select a doctor and date to see available slots.
               </p>
             </div>
+            <div class="field-error" id="slotError"><i class="bi bi-exclamation-circle"></i> Please select a time slot.</div>
             <div class="mt-2" style="font-size:0.75rem;color:#6b7280;">
               <span class="time-slot selected" style="padding:2px 8px;font-size:0.7rem;pointer-events:none;">—</span> Selected &nbsp;&nbsp;
               <span class="time-slot" style="padding:2px 8px;font-size:0.7rem;pointer-events:none;">—</span> Available
             </div>
           </div>
 
-          <button class="btn btn-primary btn-book w-100" id="bookBtn" onclick="bookAppointment()" disabled>
-            <i class="bi bi-check-circle"></i> Book Appointment
+          <!-- Payment info note -->
+          <div class="alert alert-info d-flex align-items-center gap-2 mb-3" style="border-radius:10px;font-size:0.88rem;">
+            <i class="bi bi-shield-lock-fill text-primary fs-5"></i>
+            <span>Your appointment will be <strong>confirmed only after successful payment</strong>. Powered by Razorpay.</span>
+          </div>
+
+          <button class="btn btn-book btn-primary w-100" id="bookBtn" onclick="initiatePayment()" disabled>
+            <i class="bi bi-credit-card"></i> Proceed to Pay ₹500
           </button>
+          <div class="razorpay-badge">
+            <i class="bi bi-lock-fill" style="color:#1a56db;"></i>
+            Secured by Razorpay &nbsp;|&nbsp; 256-bit SSL Encryption
+          </div>
 
         </div>
       </div>
@@ -189,18 +249,18 @@
           </div>
           <div class="summary-item">
             <span class="label">Status</span>
-            <span class="value text-warning"><i class="bi bi-hourglass-split"></i> Pending</span>
+            <span class="value text-warning"><i class="bi bi-hourglass-split"></i> Pending Payment</span>
           </div>
 
           <div class="fee-box">
             <div class="desc">Consultation Fee</div>
             <div class="amount">₹500</div>
-            <div class="desc">Payable at clinic</div>
+            <div class="desc mt-1"><i class="bi bi-credit-card"></i> Pay Securely Online</div>
           </div>
 
           <div class="cancellation-note">
             <i class="bi bi-check-circle-fill"></i>
-            <strong>Free Cancellation</strong> up to 24 hours before appointment
+            <strong>Appointment confirmed</strong> only after payment
           </div>
         </div>
       </div>
@@ -208,18 +268,36 @@
   </div>
 
   <!-- ===== SUCCESS MODAL ===== -->
-  <div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
+  <div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content text-center p-4">
         <div class="success-icon"><i class="bi bi-check-circle-fill"></i></div>
-        <h4 class="mt-2 fw-bold">Appointment Booked!</h4>
+        <h4 class="mt-2 fw-bold">Payment Successful!</h4>
         <p class="text-muted">
-          Your appointment has been confirmed successfully.<br>
-          Appointment ID: <strong id="confirmId"></strong>
+          Your appointment is confirmed.<br>
+          Appointment ID: <strong id="confirmId"></strong><br>
+          Payment ID: <strong id="confirmPayId"></strong>
         </p>
         <div class="d-flex gap-2 justify-content-center mt-2">
           <a href="view_appointments.html" class="btn btn-primary rounded-3 px-4">View Appointments</a>
-          <button class="btn btn-outline-secondary rounded-3 px-4" data-bs-dismiss="modal">Close</button>
+          <a href="my_payments.html" class="btn btn-outline-secondary rounded-3 px-4">My Payments</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FAILURE MODAL ===== -->
+  <div class="modal fade" id="failModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content text-center p-4">
+        <div class="fail-icon"><i class="bi bi-x-circle-fill"></i></div>
+        <h4 class="mt-2 fw-bold text-danger">Payment Failed</h4>
+        <p class="text-muted" id="failMsg">Your payment could not be completed. No charges were made.</p>
+        <div class="d-flex gap-2 justify-content-center mt-2">
+          <button class="btn btn-primary rounded-3 px-4" data-bs-dismiss="modal" onclick="resetForm()">
+            <i class="bi bi-arrow-repeat"></i> Try Again
+          </button>
+          <a href="patient_dashboard.html" class="btn btn-outline-secondary rounded-3 px-4">Dashboard</a>
         </div>
       </div>
     </div>
@@ -236,21 +314,22 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-  <!-- ✅ CHANGED: Load auth.js -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script src="auth.js"></script>
 
   <script>
     // ═══════════════════════════════════════════════════
-    //  ✅ CHANGED: Login check (no BASE_URL — already in auth.js)
+    //  INIT — Login check
     // ═══════════════════════════════════════════════════
     const user = getLoggedInUser();
     if (!user) { window.location.href = 'login.html'; }
 
     let selectedTimeSlot = '';
     let doctorsList = [];
+    let currentAppointmentId = null;
+    let currentOrderId = null;
+    let razorpayKeyId = '';
 
-    // ✅ CHANGED: Set navbar from logged-in user
     document.getElementById('navName').textContent = user.name || 'Patient';
     document.getElementById('avatarInitials').textContent =
       user.name ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2) : '--';
@@ -258,18 +337,34 @@
     // ═══════════════════════════════════════════════════
     //  ON PAGE LOAD
     // ═══════════════════════════════════════════════════
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('aptDate').setAttribute('min', today);
-      loadDoctors();
+      await loadDoctors();
+      await loadRazorpayKey();
     });
 
     // ═══════════════════════════════════════════════════
-    //  LOAD DOCTORS — ✅ CHANGED: fetch → authFetch
+    //  LOAD RAZORPAY KEY
+    // ═══════════════════════════════════════════════════
+    async function loadRazorpayKey() {
+      try {
+        const res = await authFetch(`http://localhost:8081/payments/config`);
+        if (res && res.ok) {
+          const cfg = await res.json();
+          razorpayKeyId = cfg.key || '';
+        }
+      } catch (e) {
+        console.warn('Could not load Razorpay key:', e);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  LOAD DOCTORS
     // ═══════════════════════════════════════════════════
     async function loadDoctors() {
       try {
-        const res = await authFetch(`${BASE_URL}/doctors`);   // ✅ CHANGED
+        const res = await authFetch(`${BASE_URL}/doctors`);
         if (!res || !res.ok) throw new Error('Failed to load doctors');
 
         doctorsList = await res.json();
@@ -278,7 +373,7 @@
         doctorsList.forEach(doc => {
           const opt = document.createElement('option');
           opt.value = doc.doctorId;
-          opt.textContent = `${doc.name} — ${doc.specialization}`;
+          opt.textContent = `Dr. ${doc.name} — ${doc.specialization}`;
           docSelect.appendChild(opt);
         });
       } catch (err) {
@@ -288,20 +383,22 @@
     }
 
     // ═══════════════════════════════════════════════════
-    //  FETCH SLOTS — ✅ CHANGED: fetch → authFetch
+    //  FETCH SLOTS
     // ═══════════════════════════════════════════════════
     async function onDoctorOrDateChange() {
       selectedTimeSlot = '';
       updateSummary();
+      clearErrors();
 
       const doctorId = document.getElementById('docSelect').value;
       const date = document.getElementById('aptDate').value;
       const slotsDiv = document.getElementById('timeSlots');
 
+      document.getElementById('bookBtn').disabled = true;
+
       if (!doctorId || !date) {
         slotsDiv.innerHTML =
           '<p class="text-muted" style="font-size:0.85rem;">Select a doctor and date to see available slots.</p>';
-        document.getElementById('bookBtn').disabled = true;
         return;
       }
 
@@ -309,7 +406,7 @@
         '<div class="slots-loading"><div class="spinner-border spinner-border-sm text-primary"></div> Loading slots...</div>';
 
       try {
-        const res = await authFetch(                          // ✅ CHANGED
+        const res = await authFetch(
           `${BASE_URL}/appointments/available-slots?doctorId=${doctorId}&date=${date}`
         );
         if (!res || !res.ok) {
@@ -322,7 +419,6 @@
         if (slots.length === 0) {
           slotsDiv.innerHTML =
             '<div class="no-slots"><i class="bi bi-calendar-x"></i> No available slots for this date.</div>';
-          document.getElementById('bookBtn').disabled = true;
           return;
         }
 
@@ -339,13 +435,12 @@
       } catch (err) {
         slotsDiv.innerHTML =
           `<div class="no-slots"><i class="bi bi-exclamation-triangle"></i> ${err.message}</div>`;
-        document.getElementById('bookBtn').disabled = true;
         console.error(err);
       }
     }
 
     // ═══════════════════════════════════════════════════
-    //  SELECT TIME SLOT (no change)
+    //  SELECT TIME SLOT
     // ═══════════════════════════════════════════════════
     function selectSlot(el) {
       document.querySelectorAll('#timeSlots .time-slot')
@@ -354,11 +449,12 @@
 
       selectedTimeSlot = el.dataset.time;
       document.getElementById('bookBtn').disabled = false;
+      document.getElementById('slotError').classList.remove('show');
       updateSummary();
     }
 
     // ═══════════════════════════════════════════════════
-    //  UPDATE SUMMARY (no change)
+    //  UPDATE SUMMARY
     // ═══════════════════════════════════════════════════
     function updateSummary() {
       const docSelect = document.getElementById('docSelect');
@@ -367,11 +463,11 @@
       const doctor = doctorsList.find(d => d.doctorId == doctorId);
 
       document.getElementById('sumDoc').textContent =
-        doctor ? `${doctor.name}` : '—';
+        doctor ? `Dr. ${doctor.name}` : '—';
       document.getElementById('sumSpec').textContent =
         doctor ? doctor.specialization : '—';
       document.getElementById('sumDate').textContent =
-        date ? new Date(date).toLocaleDateString('en-IN', {
+        date ? new Date(date + 'T00:00:00').toLocaleDateString('en-IN', {
           day: 'numeric', month: 'short', year: 'numeric'
         }) : '—';
       document.getElementById('sumTime').textContent =
@@ -379,58 +475,226 @@
     }
 
     // ═══════════════════════════════════════════════════
-    //  BOOK — ✅ CHANGED: authFetch + no patientId
+    //  VALIDATE FORM
     // ═══════════════════════════════════════════════════
-    async function bookAppointment() {
+    function validateForm() {
+      let valid = true;
       const doctorId = document.getElementById('docSelect').value;
       const date = document.getElementById('aptDate').value;
 
-      if (!doctorId || !date || !selectedTimeSlot) {
-        showError('⚠️ Please select a doctor, date, and time slot.');
-        return;
+      if (!doctorId) {
+        document.getElementById('docError').classList.add('show');
+        valid = false;
       }
+      if (!date) {
+        document.getElementById('dateError').classList.add('show');
+        valid = false;
+      } else {
+        const today = new Date().toISOString().split('T')[0];
+        if (date < today) {
+          document.getElementById('dateError').textContent = '⚠️ Date cannot be in the past.';
+          document.getElementById('dateError').classList.add('show');
+          valid = false;
+        }
+      }
+      if (!selectedTimeSlot) {
+        document.getElementById('slotError').classList.add('show');
+        valid = false;
+      }
+      return valid;
+    }
 
-      // ✅ CHANGED: No patientId — backend gets it from session
-      const requestBody = {
-        doctorId:        parseInt(doctorId),
-        appointmentDate: date,
-        timeSlot:        selectedTimeSlot
-      };
+    function clearErrors() {
+      document.querySelectorAll('.field-error').forEach(el => el.classList.remove('show'));
+      document.getElementById('dateError').textContent = '⚠️ Please select a future date.';
+    }
 
+    // ═══════════════════════════════════════════════════
+    //  INITIATE PAYMENT — main flow
+    // ═══════════════════════════════════════════════════
+    async function initiatePayment() {
+      if (!validateForm()) return;
+
+      const doctorId = parseInt(document.getElementById('docSelect').value);
+      const date = document.getElementById('aptDate').value;
       const bookBtn = document.getElementById('bookBtn');
+
       bookBtn.disabled = true;
-      bookBtn.innerHTML =
-        '<span class="spinner-border spinner-border-sm"></span> Booking...';
+      bookBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Booking...';
 
       try {
-        // ✅ CHANGED: authFetch + no headers (authFetch adds them)
-        const res = await authFetch(`${BASE_URL}/appointments/book`, {
+        // ─── Step 1: Book appointment (status = PENDING_PAYMENT) ───
+        const bookRes = await authFetch(`${BASE_URL}/appointments/book`, {
           method: 'POST',
-          body:   JSON.stringify(requestBody)
+          body: JSON.stringify({
+            doctorId,
+            appointmentDate: date,
+            timeSlot: selectedTimeSlot
+          })
         });
 
-        if (!res || !res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.message || `Booking failed (${res.status})`);
+        if (!bookRes || !bookRes.ok) {
+          const errData = await bookRes.json().catch(() => ({}));
+          throw new Error(errData.message || `Booking failed (${bookRes.status})`);
         }
 
-        const data = await res.json();
-        document.getElementById('confirmId').textContent = data.appointmentId;
+        const appointmentData = await bookRes.json();
+        currentAppointmentId = appointmentData.appointmentId;
 
-        const modal = new bootstrap.Modal(document.getElementById('successModal'));
-        modal.show();
+        bookBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creating Payment...';
+
+        // ─── Step 2: Create Razorpay order ───
+        const orderRes = await authFetch(`http://localhost:8081/payments/order/create`, {
+          method: 'POST',
+          body: JSON.stringify({
+            appointmentId: currentAppointmentId,
+            amount: 50000,     // ₹500 in paise
+            currency: 'INR'
+          })
+        });
+
+        if (!orderRes || !orderRes.ok) {
+          const errData = await orderRes.json().catch(() => ({}));
+          throw new Error(errData.message || 'Failed to create payment order');
+        }
+
+        const orderData = await orderRes.json();
+        currentOrderId = orderData.razorpayOrderId;
+
+        // ─── Step 3: Open Razorpay ───
+        openRazorpay(orderData, appointmentData);
 
       } catch (err) {
         showError(err.message);
         console.error(err);
-      } finally {
         bookBtn.disabled = false;
-        bookBtn.innerHTML = '<i class="bi bi-check-circle"></i> Book Appointment';
+        bookBtn.innerHTML = '<i class="bi bi-credit-card"></i> Proceed to Pay ₹500';
       }
     }
 
     // ═══════════════════════════════════════════════════
-    //  UTILITIES (no change)
+    //  OPEN RAZORPAY CHECKOUT
+    // ═══════════════════════════════════════════════════
+    function openRazorpay(orderData, appointmentData) {
+      const bookBtn = document.getElementById('bookBtn');
+      bookBtn.innerHTML = '<i class="bi bi-credit-card"></i> Proceed to Pay ₹500';
+
+      const options = {
+        key:      razorpayKeyId,
+        amount:   50000,
+        currency: 'INR',
+        name:     'MediCare',
+        description: `Appointment #${currentAppointmentId} — ${appointmentData.doctorName || document.getElementById('sumDoc').textContent}`,
+        order_id: currentOrderId,
+        prefill: {
+          name:  user.name  || '',
+          email: user.email || ''
+        },
+        theme: {
+          color: '#1a56db'
+        },
+        handler: async function (response) {
+          // Success — store payment
+          showOverlay('Verifying Payment...', 'Almost done! Confirming your appointment.');
+          try {
+            const storeRes = await authFetch(`http://localhost:8081/payments/store`, {
+              method: 'POST',
+              body: JSON.stringify({
+                razorpay_order_id:   response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature:  response.razorpay_signature
+              })
+            });
+
+            hideOverlay();
+
+            if (!storeRes || !storeRes.ok) {
+              throw new Error('Payment verification failed on server.');
+            }
+
+            const storeData = await storeRes.json();
+
+            if (storeData.status === 'PAID') {
+              document.getElementById('confirmId').textContent = `#${currentAppointmentId}`;
+              document.getElementById('confirmPayId').textContent = response.razorpay_payment_id;
+              new bootstrap.Modal(document.getElementById('successModal')).show();
+            } else {
+              document.getElementById('failMsg').textContent = 'Payment could not be verified. Status: ' + storeData.status;
+              new bootstrap.Modal(document.getElementById('failModal')).show();
+            }
+
+          } catch (err) {
+            hideOverlay();
+            showError('Payment stored but verification failed: ' + err.message);
+            console.error(err);
+          }
+        },
+        modal: {
+          ondismiss: async function () {
+            // User closed modal — record failure
+            try {
+              await authFetch(`http://localhost:8081/payments/failed`, {
+                method: 'POST',
+                body: JSON.stringify({ razorpay_order_id: currentOrderId })
+              });
+            } catch (e) { /* ignore */ }
+            document.getElementById('failMsg').textContent = 'Payment was cancelled. Your appointment slot has been released.';
+            new bootstrap.Modal(document.getElementById('failModal')).show();
+            bookBtn.disabled = false;
+          }
+        }
+      };
+
+      if (!razorpayKeyId) {
+        showError('Razorpay is not configured. Please contact support.');
+        bookBtn.disabled = false;
+        return;
+      }
+
+      const rzp = new Razorpay(options);
+      rzp.on('payment.failed', async function (response) {
+        hideOverlay();
+        try {
+          await authFetch(`http://localhost:8081/payments/failed`, {
+            method: 'POST',
+            body: JSON.stringify({ razorpay_order_id: currentOrderId })
+          });
+        } catch (e) { /* ignore */ }
+        document.getElementById('failMsg').textContent =
+          response.error?.description || 'Payment failed. Please try again.';
+        new bootstrap.Modal(document.getElementById('failModal')).show();
+        bookBtn.disabled = false;
+      });
+
+      rzp.open();
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  RESET FORM after failure
+    // ═══════════════════════════════════════════════════
+    function resetForm() {
+      currentAppointmentId = null;
+      currentOrderId = null;
+      selectedTimeSlot = '';
+      document.getElementById('bookBtn').disabled = true;
+      document.getElementById('bookBtn').innerHTML = '<i class="bi bi-credit-card"></i> Proceed to Pay ₹500';
+      updateSummary();
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  OVERLAY HELPERS
+    // ═══════════════════════════════════════════════════
+    function showOverlay(title, msg) {
+      document.getElementById('overlayTitle').textContent = title;
+      document.getElementById('overlayMsg').textContent = msg;
+      document.getElementById('paymentOverlay').classList.add('show');
+    }
+    function hideOverlay() {
+      document.getElementById('paymentOverlay').classList.remove('show');
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  UTILITIES
     // ═══════════════════════════════════════════════════
     function formatTo12Hour(time24) {
       if (!time24) return '—';

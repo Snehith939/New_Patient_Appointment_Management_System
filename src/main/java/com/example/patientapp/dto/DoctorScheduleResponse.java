@@ -3,6 +3,7 @@ package com.example.patientapp.dto;
 import com.example.patientapp.model.Appointment;
 import com.example.patientapp.model.AppointmentStatus;
 import lombok.Data;
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 /**
@@ -17,6 +18,7 @@ public class DoctorScheduleResponse {
     private Long              patientId;
     private String            patientName;
     private String            patientPhone;
+    private LocalDate         appointmentDate;
     private LocalTime         timeSlot;
     private AppointmentStatus status;
 
@@ -26,6 +28,7 @@ public class DoctorScheduleResponse {
         res.setPatientId(appointment.getPatient().getPatientId());
         res.setPatientName(appointment.getPatient().getName());
         res.setPatientPhone(appointment.getPatient().getPhone());
+        res.setAppointmentDate(appointment.getAppointmentDate());
         res.setTimeSlot(appointment.getTimeSlot());
         res.setStatus(appointment.getStatus());
         return res;

@@ -7,5 +7,7 @@ package com.example.patientapp.model;
 public enum AppointmentStatus {
     BOOKED,
     CANCELED,
-    COMPLETED
+    COMPLETED,
+    PENDING_PAYMENT,
+    FAILED
 }

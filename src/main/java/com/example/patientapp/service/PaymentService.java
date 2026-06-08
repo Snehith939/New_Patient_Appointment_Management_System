@@ -3,7 +3,9 @@ package com.example.patientapp.service;
 import com.example.patientapp.dto.CreateOrderRequest;
 import com.example.patientapp.dto.PaymentCallbackRequest;
 import com.example.patientapp.dto.PaymentResponse;
+import com.example.patientapp.dto.RefundRequest;
 import com.example.patientapp.model.Appointment;
+import com.example.patientapp.model.AppointmentStatus;
 import com.example.patientapp.model.Payment;
 import com.example.patientapp.model.PaymentStatus;
 import com.example.patientapp.repository.AppointmentRepository;
@@ -25,6 +27,7 @@ public class PaymentService {
  
     private final PaymentRepository paymentRepository;
     private final AppointmentRepository appointmentRepository;
+    private final AppointmentService appointmentService;
     private final RazorpayClient razorpayClient;
  
     @Value("${razorpay.key.id}")
@@ -35,9 +38,11 @@ public class PaymentService {
  
     public PaymentService(PaymentRepository paymentRepository,
                           AppointmentRepository appointmentRepository,
+                          AppointmentService appointmentService,
                           RazorpayClient razorpayClient) {
         this.paymentRepository = paymentRepository;
         this.appointmentRepository = appointmentRepository;
+        this.appointmentService = appointmentService;
         this.razorpayClient = razorpayClient;
     }
  
@@ -192,6 +197,7 @@ public class PaymentService {
                 .orElseThrow(() -> new RuntimeException(
                         "Payment not found for order: " + req.getRazorpay_order_id()));
  
+        Appointment appointment = payment.getAppointment();
         try {
             // Verify the signature using Razorpay SDK utility
             JSONObject attributes = new JSONObject();
@@ -202,19 +208,95 @@ public class PaymentService {
             boolean isValid = Utils.verifyPaymentSignature(attributes, razorpayKeySecret);
  
             if (isValid) {
+                // Check if the slot is still available before confirming booking
+                List<java.time.LocalTime> availableSlots = appointmentService.getAvailableSlots(
+                        appointment.getDoctor().getDoctorId(), appointment.getAppointmentDate());
+                if (!availableSlots.contains(appointment.getTimeSlot())) {
+                    // Auto-refund payment since slot was taken in the meantime
+                    try {
+                        JSONObject refundRequest = new JSONObject();
+                        razorpayClient.payments.refund(req.getRazorpay_payment_id(), refundRequest);
+                    } catch (Exception refundEx) {
+                        System.err.println("Auto-refund failed: " + refundEx.getMessage());
+                    }
+                    payment.setStatus(PaymentStatus.FAILED);
+                    payment.setRazorpayPaymentId(req.getRazorpay_payment_id());
+                    payment.setRazorpaySignature(req.getRazorpay_signature());
+                    payment.setUpdatedAt(LocalDateTime.now());
+                    paymentRepository.save(payment);
+
+                    appointment.setStatus(AppointmentStatus.FAILED);
+                    appointmentRepository.save(appointment);
+
+                    throw new RuntimeException("This time slot has already been booked and paid for by another patient. A refund has been automatically initiated.");
+                }
+
                 payment.setRazorpayPaymentId(req.getRazorpay_payment_id());
                 payment.setRazorpaySignature(req.getRazorpay_signature());
                 payment.setStatus(PaymentStatus.PAID);
+                
+                appointment.setStatus(AppointmentStatus.BOOKED);
+                appointmentRepository.save(appointment);
             } else {
                 payment.setStatus(PaymentStatus.FAILED);
+                appointment.setStatus(AppointmentStatus.FAILED);
+                appointmentRepository.save(appointment);
             }
  
         } catch (RazorpayException e) {
             payment.setStatus(PaymentStatus.FAILED);
+            appointment.setStatus(AppointmentStatus.FAILED);
+            appointmentRepository.save(appointment);
         }
  
         payment.setUpdatedAt(LocalDateTime.now());
         return PaymentResponse.from(paymentRepository.save(payment));
+    }
+
+    // — Record Failed Payment —
+    public PaymentResponse recordFailedPayment(String orderId) {
+        Payment payment = paymentRepository.findByRazorpayOrderId(orderId)
+                .orElseThrow(() -> new RuntimeException("Payment not found for order: " + orderId));
+
+        if (payment.getStatus() == PaymentStatus.CREATED) {
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setUpdatedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            Appointment appointment = payment.getAppointment();
+            appointment.setStatus(AppointmentStatus.FAILED);
+            appointmentRepository.save(appointment);
+        }
+        return PaymentResponse.from(payment);
+    }
+
+    // — Process Refund —
+    public PaymentResponse refundPayment(RefundRequest req) {
+        Payment payment = paymentRepository.findById(req.getPaymentId())
+                .orElseThrow(() -> new RuntimeException("Payment not found with ID: " + req.getPaymentId()));
+
+        if (payment.getStatus() != PaymentStatus.PAID) {
+            throw new RuntimeException("Only successful (PAID) payments can be refunded.");
+        }
+
+        try {
+            JSONObject refundRequest = new JSONObject();
+            // Call Razorpay API to issue the refund
+            razorpayClient.payments.refund(payment.getRazorpayPaymentId(), refundRequest);
+
+            payment.setStatus(PaymentStatus.REFUNDED);
+            payment.setUpdatedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            Appointment appointment = payment.getAppointment();
+            appointment.setStatus(AppointmentStatus.CANCELED);
+            appointmentRepository.save(appointment);
+
+            return PaymentResponse.from(payment);
+
+        } catch (RazorpayException e) {
+            throw new RuntimeException("Failed to process refund: " + e.getMessage());
+        }
     }
  
     // — Payment History —
@@ -228,5 +310,10 @@ public class PaymentService {
                 .stream()
                 .map(PaymentResponse::from)
                 .collect(Collectors.toList());
+    }
+
+    // — Razorpay Key Configuration —
+    public String getRazorpayKeyId() {
+        return razorpayKeyId;
     }
 }

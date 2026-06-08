@@ -77,6 +77,14 @@
       background: #fee2e2; color: #dc2626; font-weight: 600;
       font-size: 0.75rem; padding: 6px 14px; border-radius: 20px;
     }
+    .badge-pending {
+      background: #fef3c7; color: #92400e; font-weight: 600;
+      font-size: 0.75rem; padding: 6px 14px; border-radius: 20px;
+    }
+    .badge-failed {
+      background: #fee2e2; color: #dc2626; font-weight: 600;
+      font-size: 0.75rem; padding: 6px 14px; border-radius: 20px;
+    }
 
     .doctor-info { display: flex; align-items: center; gap: 10px; }
     .doc-avatar {
@@ -93,6 +101,8 @@
     }
     .btn-cancel { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
     .btn-cancel:hover { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .btn-paynow { color: #059669; border-color: #6ee7b7; background: #ecfdf5; }
+    .btn-paynow:hover { background: #059669; color: #fff; border-color: #059669; }
     .btn-rebook { color: #1a56db; border-color: #93c5fd; background: #eff6ff; }
     .btn-rebook:hover { background: #1a56db; color: #fff; border-color: #1a56db; }
 
@@ -113,6 +123,9 @@
       <div class="d-flex align-items-center gap-3">
         <a href="patient_dashboard.html" class="btn btn-outline-primary btn-sm rounded-3">
           <i class="bi bi-house"></i> Dashboard
+        </a>
+        <a href="my_payments.html" class="btn btn-outline-success btn-sm rounded-3">
+          <i class="bi bi-cash-stack"></i> My Payments
         </a>
         <div class="d-flex align-items-center gap-2">
           <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
@@ -435,10 +448,12 @@
 
     function getStatusBadge(status) {
       switch (status) {
-        case 'BOOKED':    return '<span class="badge-booked">BOOKED</span>';
-        case 'COMPLETED': return '<span class="badge-completed">COMPLETED</span>';
-        case 'CANCELED':  return '<span class="badge-canceled">CANCELED</span>';
-        default:          return `<span class="badge bg-secondary">${status}</span>`;
+        case 'BOOKED':          return '<span class="badge-booked">BOOKED</span>';
+        case 'COMPLETED':       return '<span class="badge-completed">COMPLETED</span>';
+        case 'CANCELED':        return '<span class="badge-canceled">CANCELED</span>';
+        case 'PENDING_PAYMENT': return '<span class="badge-pending">PENDING PAYMENT</span>';
+        case 'FAILED':          return '<span class="badge-failed">PAYMENT FAILED</span>';
+        default:                return `<span class="badge bg-secondary">${status}</span>`;
       }
     }
 
@@ -449,6 +464,12 @@
                      class="btn btn-action btn-cancel">
                     <i class="bi bi-x-lg"></i> Cancel
                   </a>`;
+        case 'PENDING_PAYMENT':
+          return `<a href="book_appointment.html"
+                     class="btn btn-action btn-paynow">
+                    <i class="bi bi-credit-card"></i> Pay Now
+                  </a>`;
+        case 'FAILED':
         case 'CANCELED':
           return `<a href="book_appointment.html"
                      class="btn btn-action btn-rebook">

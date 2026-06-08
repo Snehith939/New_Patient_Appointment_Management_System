@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cancel Appointment</title>
+  <title>Cancel Appointment - MediCare</title>
+  <meta name="description" content="Cancel your booked appointment at MediCare.">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
   <style>
@@ -166,18 +167,20 @@
     <div class="container">
       <a class="navbar-brand" href="#"><i class="bi bi-hospital"></i> MediCare</a>
       <div class="d-flex align-items-center gap-3">
-        <span class="position-relative">
-          <i class="bi bi-bell fs-5"></i>
-          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.6rem;">3</span>
-        </span>
+        <a href="patient_dashboard.html" class="btn btn-outline-primary btn-sm rounded-3">
+          <i class="bi bi-house"></i> Dashboard
+        </a>
         <div class="d-flex align-items-center gap-2">
           <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
-               style="width:36px;height:36px;font-size:0.85rem;font-weight:600;">AW</div>
+               style="width:36px;height:36px;font-size:0.85rem;font-weight:600;" id="avatarInitials">--</div>
           <div>
-            <div style="font-size:0.85rem;font-weight:600;">Arya Wankhade</div>
+            <div style="font-size:0.85rem;font-weight:600;" id="navName">Patient</div>
             <div style="font-size:0.7rem;color:#6b7280;">Patient</div>
           </div>
         </div>
+        <button class="btn btn-logout" onclick="logout()">
+          <i class="bi bi-box-arrow-right"></i> Logout
+        </button>
       </div>
     </div>
   </nav>
@@ -293,12 +296,17 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="auth.js"></script>
 
   <script>
     // ═══════════════════════════════════════════════════
-    //  CONFIGURATION
+    //  AUTH CHECK
     // ═══════════════════════════════════════════════════
-    const BASE_URL = 'http://localhost:8081/api';
+    const user = getLoggedInUser();
+    if (!user) { window.location.href = 'login.html'; }
+    document.getElementById('navName').textContent = user ? (user.name || 'Patient') : 'Patient';
+    document.getElementById('avatarInitials').textContent =
+      user && user.name ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0,2) : '--';
 
     // Get appointment ID from URL → cancel_appointment.html?id=5
     const urlParams = new URLSearchParams(window.location.search);
@@ -320,26 +328,32 @@
     // ═══════════════════════════════════════════════════
     async function loadAppointmentDetails() {
       try {
-        const res = await fetch(`${BASE_URL}/appointments/${appointmentId}`);
+        const res = await authFetch(`${BASE_URL}/appointments/${appointmentId}`);
 
-        if (!res.ok) {
+        if (!res || !res.ok) {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.message || `Appointment not found (${res.status})`);
         }
 
         const data = await res.json();
-        // data = { appointmentId, doctorId, doctorName, doctorSpecialization,
-        //          doctorPhone, appointmentDate, timeSlot, status }
 
-        // --- Check if already canceled ---
+        // --- Block non-cancellable statuses ---
         if (data.status === 'CANCELED') {
           showError('This appointment is already canceled.');
+          return;
+        }
+        if (data.status === 'COMPLETED') {
+          showError('Completed appointments cannot be canceled.');
+          return;
+        }
+        if (data.status === 'PENDING_PAYMENT') {
+          showError('This appointment is awaiting payment. Please complete payment first or it will be auto-released.');
           return;
         }
 
         // --- Fill the details on page ---
         document.getElementById('detailId').textContent   = `#APT-${data.appointmentId}`;
-        document.getElementById('detailDoctor').textContent = `${data.doctorName}`;
+        document.getElementById('detailDoctor').textContent = `Dr. ${data.doctorName}`;
         document.getElementById('detailSpec').textContent   = data.doctorSpecialization;
         document.getElementById('detailDate').textContent   = formatDate(data.appointmentDate);
         document.getElementById('detailTime').textContent   = formatTo12Hour(data.timeSlot);
@@ -366,12 +380,11 @@
         '<span class="spinner-border spinner-border-sm"></span> Canceling...';
 
       try {
-        const res = await fetch(`${BASE_URL}/appointments/${appointmentId}/cancel`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' }
+        const res = await authFetch(`${BASE_URL}/appointments/${appointmentId}/cancel`, {
+          method: 'PUT'
         });
 
-        if (!res.ok) {
+        if (!res || !res.ok) {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.message || `Cancel failed (${res.status})`);
         }

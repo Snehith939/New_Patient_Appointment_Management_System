@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Payments - MediCare</title>
+  <meta name="description" content="View your payment history for appointments at MediCare.">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+    .navbar-brand { font-weight: 700; color: #1a56db !important; font-size: 1.4rem; }
+    .btn-logout { background:#fee2e2;color:#dc2626;border:none;border-radius:8px;font-weight:600;font-size:0.85rem;padding:6px 16px;transition:0.2s; }
+    .btn-logout:hover { background:#dc2626;color:#fff; }
+
+    .page-header h2 { font-weight:700;color:#1f2937;font-size:1.6rem; }
+    .breadcrumb-item a { color:#6b7280;text-decoration:none; }
+    .breadcrumb-item.active { color:#1a56db; }
+
+    /* ===== Stat Mini ===== */
+    .stat-mini {
+      background:#fff; border-radius:10px; padding:18px 20px;
+      box-shadow:0 1px 6px rgba(0,0,0,0.05);
+      display:flex; align-items:center; gap:12px; transition:all 0.2s;
+    }
+    .stat-mini:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.08); }
+    .stat-mini .icon-box { width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem; }
+    .stat-mini h4 { font-size:1.3rem;font-weight:700;margin:0; }
+    .stat-mini p { font-size:0.78rem;color:#6b7280;margin:0; }
+
+    /* ===== Card ===== */
+    .card { border:none;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.06); }
+
+    /* ===== Table ===== */
+    .table thead th { background:#f9fafb;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;padding:14px 16px;border-bottom:2px solid #e5e7eb; }
+    .table tbody td { padding:16px;vertical-align:middle;font-size:0.9rem;border-bottom:1px solid #f3f4f6; }
+    .table tbody tr:hover { background:#f9fafb; }
+
+    /* ===== Payment Status Badges ===== */
+    .badge-paid    { background:#d1fae5;color:#059669;font-weight:600;font-size:0.73rem;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:4px; }
+    .badge-failed  { background:#fee2e2;color:#dc2626;font-weight:600;font-size:0.73rem;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:4px; }
+    .badge-created { background:#fef3c7;color:#92400e;font-weight:600;font-size:0.73rem;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:4px; }
+    .badge-refunded{ background:#e0e7ff;color:#4338ca;font-weight:600;font-size:0.73rem;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:4px; }
+
+    /* ===== Filter tabs ===== */
+    .filter-tabs .btn { border-radius:8px;font-weight:600;font-size:0.85rem;padding:8px 20px;border:1.5px solid #e5e7eb;color:#4b5563;background:#fff;transition:all 0.2s; }
+    .filter-tabs .btn:hover { background:#eff6ff;border-color:#93c5fd;color:#1a56db; }
+    .filter-tabs .btn.active { background:#1a56db;color:#fff;border-color:#1a56db; }
+
+    .loading-state,.empty-state,.error-state { text-align:center;padding:50px 20px; }
+    .empty-state i { font-size:3rem;color:#d1d5db; }
+    .empty-state p,.error-state p { color:#9ca3af;margin-top:10px; }
+
+    /* ===== Amount styling ===== */
+    .amount-cell { font-weight:700;color:#1f2937;font-size:1rem; }
+    .payment-id-cell { font-size:0.78rem;color:#6b7280;font-family:monospace; }
+
+    /* ===== Summary Banner ===== */
+    .summary-banner {
+      background: linear-gradient(135deg, #1a56db, #3b82f6);
+      border-radius:14px; padding:24px 28px; color:#fff; margin-bottom:24px;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .summary-banner .total-amount { font-size:2rem;font-weight:700; }
+    .summary-banner .total-label { font-size:0.88rem;opacity:0.85;margin:0; }
+    .summary-banner .icon-big { font-size:3rem;opacity:0.3; }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+    <div class="container">
+      <a class="navbar-brand" href="#"><i class="bi bi-hospital"></i> MediCare</a>
+      <div class="d-flex align-items-center gap-3">
+        <a href="patient_dashboard.html" class="btn btn-outline-primary btn-sm rounded-3">
+          <i class="bi bi-house"></i> Dashboard
+        </a>
+        <div class="d-flex align-items-center gap-2">
+          <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
+               style="width:36px;height:36px;font-size:0.85rem;font-weight:600;" id="avatarInitials">--</div>
+          <div>
+            <div style="font-size:0.85rem;font-weight:600;" id="navName">Patient</div>
+            <div style="font-size:0.7rem;color:#6b7280;">Patient</div>
+          </div>
+        </div>
+        <button class="btn btn-logout" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container py-4">
+
+    <!-- Page Header -->
+    <div class="page-header d-flex justify-content-between align-items-start mb-4">
+      <div>
+        <h2><i class="bi bi-cash-stack"></i> My Payments</h2>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="patient_dashboard.html">Dashboard</a></li>
+            <li class="breadcrumb-item active">My Payments</li>
+          </ol>
+        </nav>
+      </div>
+      <a href="book_appointment.html" class="btn btn-primary rounded-3">
+        <i class="bi bi-plus-circle"></i> Book Appointment
+      </a>
+    </div>
+
+    <!-- Total Paid Banner -->
+    <div class="summary-banner">
+      <div>
+        <div class="total-amount" id="totalPaidAmt">₹0</div>
+        <p class="total-label">Total Amount Paid (Successful)</p>
+      </div>
+      <i class="bi bi-wallet2 icon-big"></i>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="stat-mini">
+          <div class="icon-box" style="background:#eff6ff;color:#1a56db;"><i class="bi bi-receipt"></i></div>
+          <div><h4 id="statTotal">0</h4><p>Total</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-mini">
+          <div class="icon-box" style="background:#d1fae5;color:#059669;"><i class="bi bi-check-circle"></i></div>
+          <div><h4 id="statPaid">0</h4><p>Successful</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-mini">
+          <div class="icon-box" style="background:#fef3c7;color:#92400e;"><i class="bi bi-hourglass-split"></i></div>
+          <div><h4 id="statPending">0</h4><p>Pending</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-mini">
+          <div class="icon-box" style="background:#fee2e2;color:#dc2626;"><i class="bi bi-x-circle"></i></div>
+          <div><h4 id="statFailed">0</h4><p>Failed</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payments Table -->
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <div class="filter-tabs d-flex gap-2" id="filterTabs">
+            <button class="btn active" id="filterAll" onclick="filterPayments('all', this)">All</button>
+            <button class="btn" id="filterPaid" onclick="filterPayments('PAID', this)">Successful</button>
+            <button class="btn" id="filterCreated" onclick="filterPayments('CREATED', this)">Pending</button>
+            <button class="btn" id="filterFailed" onclick="filterPayments('FAILED', this)">Failed</button>
+            <button class="btn" id="filterRefunded" onclick="filterPayments('REFUNDED', this)">Refunded</button>
+          </div>
+          <input type="text" class="form-control form-control-sm rounded-3"
+                 placeholder="🔍 Search payments..." style="width:220px;"
+                 id="searchInput" onkeyup="searchPayments(this.value)">
+        </div>
+
+        <div class="loading-state" id="loadingState">
+          <div class="spinner-border text-primary mb-3"></div>
+          <p class="text-muted">Loading your payments...</p>
+        </div>
+
+        <div class="table-responsive" id="tableContainer" style="display:none;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Ref #</th>
+                <th>Date</th>
+                <th>Doctor</th>
+                <th>Appointment</th>
+                <th>Amount</th>
+                <th>Payment ID</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="paymentBody"></tbody>
+          </table>
+        </div>
+
+        <div class="empty-state" id="emptyState" style="display:none;">
+          <i class="bi bi-receipt-cutoff"></i>
+          <p>No payments found.</p>
+          <a href="book_appointment.html" class="btn btn-primary rounded-3 mt-2">
+            <i class="bi bi-calendar-plus"></i> Book Your First Appointment
+          </a>
+        </div>
+
+        <div class="error-state" id="errorState" style="display:none;">
+          <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size:2.5rem;"></i>
+          <p id="errorMsg">Could not load payment history.</p>
+          <button class="btn btn-primary rounded-3 mt-2" onclick="loadPayments()">
+            <i class="bi bi-arrow-clockwise"></i> Retry
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="auth.js"></script>
+
+  <script>
+    const user = getLoggedInUser();
+    if (!user || user.role !== 'PATIENT') { window.location.href = 'login.html'; }
+
+    document.getElementById('navName').textContent = user.name || 'Patient';
+    document.getElementById('avatarInitials').textContent =
+      user.name ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0,2) : '--';
+
+    let allPayments = [];
+    const patientId = user.userId || user.id;
+
+    document.addEventListener('DOMContentLoaded', () => { loadPayments(); });
+
+    async function loadPayments() {
+      showState('loading');
+      try {
+        const res = await authFetch(`http://localhost:8081/payments/history/${patientId}`);
+        if (!res || !res.ok) throw new Error('Failed to load payments');
+
+        allPayments = await res.json();
+        allPayments = Array.isArray(allPayments) ? allPayments : [];
+
+        updateStats();
+
+        if (!allPayments.length) { showState('empty'); return; }
+
+        renderTable(allPayments);
+        showState('table');
+
+      } catch(e) {
+        document.getElementById('errorMsg').textContent = e.message;
+        showState('error');
+        console.error(e);
+      }
+    }
+
+    function updateStats() {
+      const paid     = allPayments.filter(p => p.status === 'PAID');
+      const pending  = allPayments.filter(p => p.status === 'CREATED');
+      const failed   = allPayments.filter(p => p.status === 'FAILED');
+
+      document.getElementById('statTotal').textContent   = allPayments.length;
+      document.getElementById('statPaid').textContent    = paid.length;
+      document.getElementById('statPending').textContent = pending.length;
+      document.getElementById('statFailed').textContent  = failed.length;
+
+      const totalPaid = paid.reduce((sum, p) => sum + (p.amount || 0), 0);
+      document.getElementById('totalPaidAmt').textContent = `₹${(totalPaid / 100).toFixed(0)}`;
+    }
+
+    function renderTable(payments) {
+      const tbody = document.getElementById('paymentBody');
+      tbody.innerHTML = '';
+      payments.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.dataset.status = p.status;
+        tr.innerHTML = `
+          <td><strong>#${p.paymentId}</strong></td>
+          <td>${formatDateTime(p.createdAt)}</td>
+          <td><strong>Dr. ${p.doctorName || '—'}</strong></td>
+          <td><span style="font-size:0.82rem;color:#6b7280;">Apt #${p.appointmentId}</span></td>
+          <td class="amount-cell">₹${((p.amount || 0) / 100).toFixed(0)}</td>
+          <td class="payment-id-cell">${p.razorpayPaymentId ? p.razorpayPaymentId.substring(0,18) + '...' : '—'}</td>
+          <td>${getPayStatusBadge(p.status)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterPayments(status, btn) {
+      document.querySelectorAll('.filter-tabs .btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const rows = document.querySelectorAll('#paymentBody tr');
+      let visible = 0;
+      rows.forEach(row => {
+        const show = status === 'all' || row.dataset.status === status;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      document.getElementById('emptyState').style.display   = visible === 0 ? 'block' : 'none';
+      document.getElementById('tableContainer').style.display = visible === 0 ? 'none' : 'block';
+    }
+
+    function searchPayments(query) {
+      const rows = document.querySelectorAll('#paymentBody tr');
+      let visible = 0;
+      query = query.toLowerCase();
+      rows.forEach(row => {
+        const show = row.textContent.toLowerCase().includes(query);
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      document.getElementById('emptyState').style.display   = visible === 0 ? 'block' : 'none';
+      document.getElementById('tableContainer').style.display = visible === 0 ? 'none' : 'block';
+    }
+
+    function showState(state) {
+      document.getElementById('loadingState').style.display  = state === 'loading' ? 'block' : 'none';
+      document.getElementById('tableContainer').style.display = state === 'table'   ? 'block' : 'none';
+      document.getElementById('emptyState').style.display    = state === 'empty'   ? 'block' : 'none';
+      document.getElementById('errorState').style.display    = state === 'error'   ? 'block' : 'none';
+    }
+
+    function getPayStatusBadge(status) {
+      switch(status) {
+        case 'PAID':     return '<span class="badge-paid"><i class="bi bi-check-circle-fill"></i> PAID</span>';
+        case 'FAILED':   return '<span class="badge-failed"><i class="bi bi-x-circle-fill"></i> FAILED</span>';
+        case 'CREATED':  return '<span class="badge-created"><i class="bi bi-hourglass-split"></i> PENDING</span>';
+        case 'REFUNDED': return '<span class="badge-refunded"><i class="bi bi-arrow-counterclockwise"></i> REFUNDED</span>';
+        default:         return `<span class="badge bg-secondary">${status}</span>`;
+      }
+    }
+
+    function formatDateTime(dt) {
+      if (!dt) return '—';
+      return new Date(dt).toLocaleString('en-IN', {
+        day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'
+      });
+    }
+  </script>
+
+</body>
+</html>

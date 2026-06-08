@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appointment Payments - MediCare</title>
+  <meta name="description" content="View payment status for your patient appointments.">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+    .navbar-brand { font-weight: 700; color: #059669 !important; font-size: 1.4rem; }
+    .btn-logout { background:#fee2e2;color:#dc2626;border:none;border-radius:8px;font-weight:600;font-size:0.85rem;padding:6px 16px;transition:0.2s; }
+    .btn-logout:hover { background:#dc2626;color:#fff; }
+
+    .page-header h2 { font-weight:700;color:#1f2937;font-size:1.6rem; }
+    .breadcrumb-item a { color:#6b7280;text-decoration:none; }
+    .breadcrumb-item.active { color:#059669; }
+
+    /* ===== Summary Banner ===== */
+    .summary-banner {
+      background: linear-gradient(135deg, #059669, #10b981);
+      border-radius:14px; padding:24px 28px; color:#fff; margin-bottom:24px;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .summary-banner .total-amount { font-size:2rem;font-weight:700; }
+    .summary-banner .total-label { font-size:0.88rem;opacity:0.85;margin:0; }
+    .summary-banner .icon-big { font-size:3rem;opacity:0.3; }
+
+    /* ===== Stats ===== */
+    .stat-mini { background:#fff;border-radius:10px;padding:18px 20px;box-shadow:0 1px 6px rgba(0,0,0,0.05);display:flex;align-items:center;gap:12px;transition:all 0.2s; }
+    .stat-mini:hover { transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.08); }
+    .stat-mini .icon-box { width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem; }
+    .stat-mini h4 { font-size:1.3rem;font-weight:700;margin:0; }
+    .stat-mini p { font-size:0.78rem;color:#6b7280;margin:0; }
+
+    /* ===== Card ===== */
+    .card { border:none;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.06); }
+
+    /* ===== Table ===== */
+    .table thead th { background:#f9fafb;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;padding:14px 16px;border-bottom:2px solid #e5e7eb; }
+    .table tbody td { padding:16px;vertical-align:middle;font-size:0.9rem;border-bottom:1px solid #f3f4f6; }
+    .table tbody tr:hover { background:#f9fafb; }
+
+    /* ===== Badges ===== */
+    .badge-paid    { background:#d1fae5;color:#059669;font-weight:600;font-size:0.73rem;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:4px; }
+    .badge-failed  { background:#fee2e2;color:#dc2626;font-weight:600;font-size:0.73rem;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:4px; }
+    .badge-created { background:#fef3c7;color:#92400e;font-weight:600;font-size:0.73rem;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:4px; }
+    .badge-refunded{ background:#e0e7ff;color:#4338ca;font-weight:600;font-size:0.73rem;padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:4px; }
+    .badge-no-pay  { background:#f3f4f6;color:#6b7280;font-weight:600;font-size:0.73rem;padding:5px 12px;border-radius:20px; }
+
+    /* ===== Apt Status Badges ===== */
+    .badge-booked   { background:#dbeafe;color:#1d4ed8;font-weight:600;font-size:0.72rem;padding:4px 10px;border-radius:20px; }
+    .badge-completed{ background:#d1fae5;color:#059669;font-weight:600;font-size:0.72rem;padding:4px 10px;border-radius:20px; }
+    .badge-canceled { background:#fee2e2;color:#dc2626;font-weight:600;font-size:0.72rem;padding:4px 10px;border-radius:20px; }
+    .badge-pending  { background:#fef3c7;color:#92400e;font-weight:600;font-size:0.72rem;padding:4px 10px;border-radius:20px; }
+
+    /* ===== Filter tabs ===== */
+    .filter-tabs .btn { border-radius:8px;font-weight:600;font-size:0.85rem;padding:8px 20px;border:1.5px solid #e5e7eb;color:#4b5563;background:#fff;transition:all 0.2s; }
+    .filter-tabs .btn:hover { background:#ecfdf5;border-color:#6ee7b7;color:#059669; }
+    .filter-tabs .btn.active { background:#059669;color:#fff;border-color:#059669; }
+
+    .loading-state,.empty-state { text-align:center;padding:50px 20px; }
+    .empty-state i { font-size:3rem;color:#d1d5db; }
+    .empty-state p { color:#9ca3af;margin-top:10px; }
+
+    .patient-avatar { width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:700;color:#fff;background:#059669; }
+    .amount-cell { font-weight:700;color:#1f2937;font-size:1rem; }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+    <div class="container">
+      <a class="navbar-brand" href="#"><i class="bi bi-hospital"></i> MediCare</a>
+      <div class="d-flex align-items-center gap-3">
+        <a href="doctor_dashboard.html" class="btn btn-outline-success btn-sm rounded-3">
+          <i class="bi bi-house"></i> Dashboard
+        </a>
+        <div class="d-flex align-items-center gap-2">
+          <div style="width:36px;height:36px;border-radius:50%;background:#059669;display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:600;color:#fff;" id="avatarInitials">--</div>
+          <div>
+            <div style="font-size:0.85rem;font-weight:600;" id="navName">Doctor</div>
+            <div style="font-size:0.7rem;color:#6b7280;">Doctor</div>
+          </div>
+        </div>
+        <button class="btn btn-logout" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container py-4">
+
+    <!-- Page Header -->
+    <div class="page-header mb-4">
+      <h2><i class="bi bi-cash-stack"></i> Appointment Payments</h2>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="doctor_dashboard.html">Dashboard</a></li>
+          <li class="breadcrumb-item active">Payments</li>
+        </ol>
+      </nav>
+    </div>
+
+    <!-- Revenue Banner -->
+    <div class="summary-banner">
+      <div>
+        <div class="total-amount" id="totalRevenueAmt">₹0</div>
+        <p class="total-label">Total Confirmed Revenue (Paid Appointments)</p>
+      </div>
+      <i class="bi bi-graph-up icon-big"></i>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="stat-mini">
+          <div class="icon-box" style="background:#d1fae5;color:#059669;"><i class="bi bi-check-circle"></i></div>
+          <div><h4 id="statPaid">0</h4><p>Paid</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-mini">
+          <div class="icon-box" style="background:#fef3c7;color:#92400e;"><i class="bi bi-hourglass-split"></i></div>
+          <div><h4 id="statPending">0</h4><p>Pending</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-mini">
+          <div class="icon-box" style="background:#fee2e2;color:#dc2626;"><i class="bi bi-x-circle"></i></div>
+          <div><h4 id="statFailed">0</h4><p>Failed / No Pay</p></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-mini">
+          <div class="icon-box" style="background:#eff6ff;color:#1a56db;"><i class="bi bi-calendar-check"></i></div>
+          <div><h4 id="statTotal">0</h4><p>Total Appointments</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payments Table -->
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <div class="filter-tabs d-flex gap-2">
+            <button class="btn active" onclick="filterRows('all', this)">All</button>
+            <button class="btn" onclick="filterRows('PAID', this)">Paid</button>
+            <button class="btn" onclick="filterRows('CREATED', this)">Pending</button>
+            <button class="btn" onclick="filterRows('FAILED', this)">Failed</button>
+            <button class="btn" onclick="filterRows('NO_PAYMENT', this)">No Payment</button>
+          </div>
+          <input type="text" class="form-control form-control-sm rounded-3" style="width:220px;"
+                 placeholder="🔍 Search patient, status..." id="searchInput" oninput="searchRows(this.value)">
+        </div>
+
+        <div class="loading-state" id="loadingState">
+          <div class="spinner-border text-success mb-3"></div>
+          <p class="text-muted">Loading payment data...</p>
+        </div>
+
+        <div class="table-responsive" id="tableContainer" style="display:none;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Apt #</th>
+                <th>Date</th>
+                <th>Patient</th>
+                <th>Phone</th>
+                <th>Time</th>
+                <th>Apt Status</th>
+                <th>Amount</th>
+                <th>Payment Status</th>
+              </tr>
+            </thead>
+            <tbody id="payBody"></tbody>
+          </table>
+        </div>
+
+        <div class="empty-state" id="emptyState" style="display:none;">
+          <i class="bi bi-receipt-cutoff"></i>
+          <p>No appointment records found.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="auth.js"></script>
+
+  <script>
+    const user = getLoggedInUser();
+    if (!user || user.role !== 'DOCTOR') { window.location.href = 'login.html'; }
+
+    document.getElementById('navName').textContent = user.name || 'Doctor';
+    document.getElementById('avatarInitials').textContent =
+      user.name ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0,2) : '--';
+
+    const doctorId = user.userId || user.id;
+    let tableData = [];  // Combined schedule + payment info
+
+    document.addEventListener('DOMContentLoaded', () => { loadData(); });
+
+    // ─────────────────────────────────────────────────────────
+    //  Load: fetch doctor full schedule, then for each
+    //  appointment fetch payment status from all payments
+    //  (we fetch all doctor apts + all patient payments per apt)
+    // ─────────────────────────────────────────────────────────
+    async function loadData() {
+      try {
+        // Get all appointments for this doctor
+        const schedRes = await authFetch(`${BASE_URL}/doctors/${doctorId}/schedule`);
+        if (!schedRes || !schedRes.ok) throw new Error('Failed to load schedule');
+        const schedule = await schedRes.json();
+
+        if (!schedule.length) {
+          document.getElementById('loadingState').style.display = 'none';
+          document.getElementById('emptyState').style.display = 'block';
+          updateStats([]);
+          return;
+        }
+
+        // For each appointment, fetch its payment info via the patient's payment history
+        // We batch unique patient IDs to avoid duplicate calls
+        const patientIdSet = new Set(schedule.map(a => a.patientId));
+        const paymentsByAptId = {};
+
+        await Promise.all([...patientIdSet].map(async (pid) => {
+          try {
+            const pRes = await authFetch(`http://localhost:8081/payments/history/${pid}`);
+            if (pRes && pRes.ok) {
+              const payments = await pRes.json();
+              payments.forEach(p => {
+                paymentsByAptId[p.appointmentId] = p;
+              });
+            }
+          } catch(e) { /* ignore individual errors */ }
+        }));
+
+        // Merge schedule with payment info
+        tableData = schedule.map(apt => ({
+          ...apt,
+          payment: paymentsByAptId[apt.appointmentId] || null
+        }));
+
+        // Sort newest-payment or newest-id first
+        tableData.sort((a, b) => b.appointmentId - a.appointmentId);
+
+        updateStats(tableData);
+        renderTable(tableData);
+
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'block';
+
+      } catch(e) {
+        document.getElementById('loadingState').innerHTML =
+          `<p class="text-danger"><i class="bi bi-exclamation-triangle"></i> ${e.message}</p>`;
+        console.error(e);
+      }
+    }
+
+    function updateStats(data) {
+      const paid    = data.filter(d => d.payment && d.payment.status === 'PAID');
+      const pending = data.filter(d => d.payment && d.payment.status === 'CREATED');
+      const failed  = data.filter(d => !d.payment || d.payment.status === 'FAILED');
+
+      document.getElementById('statTotal').textContent   = data.length;
+      document.getElementById('statPaid').textContent    = paid.length;
+      document.getElementById('statPending').textContent = pending.length;
+      document.getElementById('statFailed').textContent  = failed.length;
+
+      const revenue = paid.reduce((sum, d) => sum + (d.payment.amount || 0), 0);
+      document.getElementById('totalRevenueAmt').textContent = `₹${(revenue / 100).toFixed(0)}`;
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('payBody');
+      tbody.innerHTML = '';
+      data.forEach(row => {
+        const p = row.payment;
+        const payStatus = p ? p.status : 'NO_PAYMENT';
+        const tr = document.createElement('tr');
+        tr.dataset.filter = payStatus;
+        tr.innerHTML = `
+          <td><strong>#${row.appointmentId}</strong></td>
+          <td>${row.appointmentDate ? formatDate(row.appointmentDate) : '<span class="text-muted">—</span>'}</td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="patient-avatar">${getInitials(row.patientName)}</div>
+              <div>
+                <div style="font-weight:600;">${row.patientName}</div>
+              </div>
+            </div>
+          </td>
+          <td><i class="bi bi-telephone text-muted" style="font-size:0.8rem;"></i> ${row.patientPhone || '—'}</td>
+          <td>${formatTo12Hour(row.timeSlot)}</td>
+          <td>${getAptStatusBadge(row.status)}</td>
+          <td class="amount-cell">${p ? '₹' + ((p.amount||0)/100).toFixed(0) : '—'}</td>
+          <td>${getPayStatusBadge(payStatus)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterRows(status, btn) {
+      document.querySelectorAll('.filter-tabs .btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const rows = document.querySelectorAll('#payBody tr');
+      let visible = 0;
+      rows.forEach(row => {
+        const show = status === 'all' || row.dataset.filter === status;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      document.getElementById('emptyState').style.display = visible === 0 ? 'block' : 'none';
+      document.getElementById('tableContainer').style.display = visible === 0 ? 'none' : 'block';
+    }
+
+    function searchRows(query) {
+      const rows = document.querySelectorAll('#payBody tr');
+      let visible = 0;
+      query = query.toLowerCase();
+      rows.forEach(row => {
+        const show = row.textContent.toLowerCase().includes(query);
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      document.getElementById('emptyState').style.display = visible === 0 ? 'block' : 'none';
+      document.getElementById('tableContainer').style.display = visible === 0 ? 'none' : 'block';
+    }
+
+    function getPayStatusBadge(status) {
+      switch(status) {
+        case 'PAID':       return '<span class="badge-paid"><i class="bi bi-check-circle-fill"></i> PAID</span>';
+        case 'FAILED':     return '<span class="badge-failed"><i class="bi bi-x-circle-fill"></i> FAILED</span>';
+        case 'CREATED':    return '<span class="badge-created"><i class="bi bi-hourglass-split"></i> PENDING</span>';
+        case 'REFUNDED':   return '<span class="badge-refunded"><i class="bi bi-arrow-counterclockwise"></i> REFUNDED</span>';
+        case 'NO_PAYMENT': return '<span class="badge-no-pay">No Payment</span>';
+        default:           return `<span class="badge bg-secondary">${status}</span>`;
+      }
+    }
+
+    function getAptStatusBadge(status) {
+      switch(status) {
+        case 'BOOKED':          return '<span class="badge-booked">BOOKED</span>';
+        case 'COMPLETED':       return '<span class="badge-completed">COMPLETED</span>';
+        case 'CANCELED':        return '<span class="badge-canceled">CANCELED</span>';
+        case 'PENDING_PAYMENT': return '<span class="badge-pending">PENDING PAY</span>';
+        default:                return `<span class="badge bg-secondary">${status || '—'}</span>`;
+      }
+    }
+
+    function getInitials(name) {
+      if (!name) return '?';
+      return name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2);
+    }
+    function formatDate(d) {
+      if (!d) return '—';
+      return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+    }
+    function formatTo12Hour(t) {
+      if (!t) return '—';
+      const str = typeof t === 'string' ? t : String(t);
+      const parts = str.split(':');
+      const h = parseInt(parts[0]), m = parseInt(parts[1] || 0);
+      return `${h%12||12}:${m.toString().padStart(2,'0')} ${h>=12?'PM':'AM'}`;
+    }
+  </script>
+
+</body>
+</html>
