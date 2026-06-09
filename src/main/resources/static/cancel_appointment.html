@@ -252,12 +252,6 @@
               <i class="bi bi-info-circle-fill"></i>
               <strong>Warning:</strong> This action cannot be undone.
               Once canceled, you will need to book a new appointment.
-              <br><br>
-              <i class="bi bi-credit-card"></i>
-              <strong>Refund Policy:</strong> If your appointment is <strong>upcoming</strong>
-              (date not yet passed), a full refund will be automatically processed to your original
-              payment method. Appointments whose date has <strong>already passed</strong> are
-              not eligible for a refund.
             </div>
 
             <!-- Action Buttons -->
@@ -276,28 +270,9 @@
             <div class="icon"><i class="bi bi-check-circle-fill"></i></div>
             <h4>Appointment Canceled</h4>
             <p>Your appointment <strong id="successId"></strong> has been canceled successfully.</p>
-            <div id="refundNotice" style="display:none;
-                 background:#e0e7ff;border-radius:10px;padding:14px 20px;
-                 margin:16px auto;max-width:380px;color:#3730a3;font-size:0.9rem;">
-              <i class="bi bi-arrow-counterclockwise"></i>
-              <strong>Refund Initiated!</strong> A full refund has been automatically
-              processed for this appointment. Please check
-              <a href="my_payments.html" style="color:#4338ca;font-weight:600;">My Payments</a>
-              to see the updated status.
-            </div>
-            <div id="noRefundNotice" style="display:none;
-                 background:#fef3c7;border-radius:10px;padding:14px 20px;
-                 margin:16px auto;max-width:380px;color:#92400e;font-size:0.9rem;">
-              <i class="bi bi-info-circle"></i>
-              <strong>No Refund:</strong> This appointment's date has already passed,
-              so it is not eligible for a refund.
-            </div>
             <div class="d-flex gap-2 justify-content-center mt-3">
               <a href="book_appointment.html" class="btn btn-primary rounded-3 px-4">
                 <i class="bi bi-plus-circle"></i> Book New
-              </a>
-              <a href="my_payments.html" class="btn btn-outline-secondary rounded-3 px-4">
-                <i class="bi bi-cash-stack"></i> My Payments
               </a>
               <a href="view_appointments.html" class="btn btn-outline-secondary rounded-3 px-4">
                 <i class="bi bi-list"></i> My Appointments
@@ -336,7 +311,6 @@
     // Get appointment ID from URL → cancel_appointment.html?id=5
     const urlParams = new URLSearchParams(window.location.search);
     const appointmentId = urlParams.get('id');
-    let appointmentDate = null;  // stored after loading appointment details
 
     // ═══════════════════════════════════════════════════
     //  ON PAGE LOAD → Fetch appointment details
@@ -362,9 +336,6 @@
         }
 
         const data = await res.json();
-
-        // Store appointment date for use in refund notice logic
-        appointmentDate = data.appointmentDate; // e.g. "2025-06-15"
 
         // --- Block non-cancellable statuses ---
         if (data.status === 'CANCELED') {
@@ -424,18 +395,6 @@
         document.getElementById('cancelForm').style.display    = 'none';
         document.getElementById('successState').style.display  = 'block';
         document.getElementById('successId').textContent       = `#APT-${data.appointmentId}`;
-
-        // Show refund notice based on whether the appointment date has passed
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const aptDate = appointmentDate ? new Date(appointmentDate + 'T00:00:00') : null;
-        if (aptDate && aptDate >= today) {
-          // Appointment is upcoming → refund was issued
-          document.getElementById('refundNotice').style.display = 'block';
-        } else {
-          // Appointment date has passed → no refund
-          document.getElementById('noRefundNotice').style.display = 'block';
-        }
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
