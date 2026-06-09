@@ -14,6 +14,8 @@ import com.example.patientapp.repository.PatientRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.stereotype.Service;
@@ -34,6 +36,9 @@ public class AppointmentService {
     private final BlockedSlotRepository blockedSlotRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    // @Lazy breaks the circular dependency: AppointmentService -> PaymentService -> AppointmentService
+    private PaymentService paymentService;
+
     public AppointmentService(AppointmentRepository appointmentRepository,
                               PatientRepository patientRepository,
                               DoctorRepository doctorRepository,
@@ -42,6 +47,11 @@ public class AppointmentService {
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
         this.blockedSlotRepository = blockedSlotRepository;
+    }
+
+    @Autowired
+    public void setPaymentService(@Lazy PaymentService paymentService) {
+        this.paymentService = paymentService;
     }
 
     // — Available slots —
@@ -182,12 +192,21 @@ public class AppointmentService {
     public AppointmentResponse cancelAppointment(Long appointmentId) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found: " + appointmentId));
-        
+
         if (appointment.getStatus() != AppointmentStatus.BOOKED && appointment.getStatus() != AppointmentStatus.PENDING_PAYMENT) {
             throw new BadRequestException(
                     "Cannot cancel appointment with status: " + appointment.getStatus());
         }
-        
+
+        // ── Auto-refund on cancellation ──────────────────────────────────────
+        // If the appointment is BOOKED (payment was made) AND the appointment
+        // date has NOT yet passed → initiate a full Razorpay refund and mark
+        // payment as REFUNDED.  If the date has already passed the refund is
+        // silently skipped (non-refundable) and only the status is set to CANCELED.
+        if (appointment.getStatus() == AppointmentStatus.BOOKED && paymentService != null) {
+            paymentService.initiateCancelRefundIfPaid(appointmentId);
+        }
+
         appointment.setStatus(AppointmentStatus.CANCELED);
         return AppointmentResponse.from(appointmentRepository.save(appointment));
     }

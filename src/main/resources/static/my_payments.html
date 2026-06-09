@@ -222,7 +222,7 @@
     async function loadPayments() {
       showState('loading');
       try {
-        const res = await authFetch(`http://localhost:8081/payments/history/${patientId}`);
+        const res = await authFetch(`${BASE_URL}/payments/history/${patientId}`);
         if (!res || !res.ok) throw new Error('Failed to load payments');
 
         allPayments = await res.json();

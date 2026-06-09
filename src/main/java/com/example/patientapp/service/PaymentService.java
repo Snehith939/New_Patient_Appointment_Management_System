@@ -18,8 +18,10 @@ import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
  
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
  
 @Service
@@ -271,12 +273,27 @@ public class PaymentService {
     }
 
     // — Process Refund —
+    /**
+     * Manually initiates a full refund for a PAID payment.
+     *
+     * VALIDATION: Refunds are only allowed if the appointment date has NOT yet
+     * passed. Appointments whose date is already in the past are non-refundable.
+     */
     public PaymentResponse refundPayment(RefundRequest req) {
         Payment payment = paymentRepository.findById(req.getPaymentId())
                 .orElseThrow(() -> new RuntimeException("Payment not found with ID: " + req.getPaymentId()));
 
         if (payment.getStatus() != PaymentStatus.PAID) {
             throw new RuntimeException("Only successful (PAID) payments can be refunded.");
+        }
+
+        // ── Date validation: block refunds for appointments that have already occurred ──
+        Appointment appointment = payment.getAppointment();
+        if (appointment.getAppointmentDate() != null
+                && appointment.getAppointmentDate().isBefore(LocalDate.now())) {
+            throw new RuntimeException(
+                "Refund not allowed: the appointment on " + appointment.getAppointmentDate()
+                + " has already passed. Only upcoming appointments can be refunded.");
         }
 
         try {
@@ -288,7 +305,6 @@ public class PaymentService {
             payment.setUpdatedAt(LocalDateTime.now());
             paymentRepository.save(payment);
 
-            Appointment appointment = payment.getAppointment();
             appointment.setStatus(AppointmentStatus.CANCELED);
             appointmentRepository.save(appointment);
 
@@ -296,6 +312,73 @@ public class PaymentService {
 
         } catch (RazorpayException e) {
             throw new RuntimeException("Failed to process refund: " + e.getMessage());
+        }
+    }
+
+    // — Auto-refund on Cancellation —
+    /**
+     * Called automatically when a BOOKED appointment is cancelled by the patient.
+     *
+     * Logic:
+     *  - Looks up the payment for the given appointment.
+     *  - If no PAID payment exists, returns false (nothing to refund).
+     *  - If the appointment date has already PASSED, returns false — non-refundable.
+     *  - Otherwise calls Razorpay to issue a full refund and marks the payment REFUNDED.
+     *
+     * This method never throws — Razorpay errors are logged and swallowed so that
+     * the cancellation itself always succeeds even if the refund call fails.
+     *
+     * @return true if a refund was successfully issued, false otherwise.
+     */
+    public boolean initiateCancelRefundIfPaid(Long appointmentId) {
+        Optional<Payment> paymentOpt =
+                paymentRepository.findByAppointment_AppointmentId(appointmentId);
+        if (paymentOpt.isEmpty()) {
+            return false; // no payment record for this appointment
+        }
+
+        Payment payment = paymentOpt.get();
+
+        // Only refund PAID payments
+        if (payment.getStatus() != PaymentStatus.PAID) {
+            return false;
+        }
+
+        // Must have a Razorpay payment ID to issue a refund
+        if (payment.getRazorpayPaymentId() == null || payment.getRazorpayPaymentId().isBlank()) {
+            return false;
+        }
+
+        // ── Date validation: do NOT refund if appointment date has already passed ──
+        Appointment apt = payment.getAppointment();
+        if (apt.getAppointmentDate() != null
+                && apt.getAppointmentDate().isBefore(LocalDate.now())) {
+            // Appointment already occurred — cancellation proceeds but no refund
+            return false;
+        }
+
+        try {
+            JSONObject refundRequest = new JSONObject();
+            refundRequest.put("amount", payment.getAmount());   // full refund in paise
+            refundRequest.put("speed", "normal");
+            refundRequest.put("notes",
+                    new JSONObject().put("reason", "Appointment cancelled by patient"));
+            refundRequest.put("receipt", "cancel_refund_" + payment.getPaymentId());
+
+            razorpayClient.payments.refund(payment.getRazorpayPaymentId(), refundRequest);
+
+            // Mark payment as REFUNDED in our database
+            payment.setStatus(PaymentStatus.REFUNDED);
+            payment.setUpdatedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            return true;
+
+        } catch (RazorpayException e) {
+            // Log the failure but never block the cancellation
+            System.err.println("[PaymentService] Auto-refund failed for appointment "
+                    + appointmentId + ": " + e.getMessage());
+            return false;
         }
     }
  
